@@ -6,7 +6,7 @@ export function createMainWindow() {
     width: 1200,
     height: 780,
     webPreferences: {
-      preload: join(__dirname, '../preload/bridge/index.js'),
+      preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       sandbox: true,
     },
