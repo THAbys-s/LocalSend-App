@@ -8,12 +8,10 @@ interface ConfigSchema {
   downloadPath: string;
 }
 
-const store = new Store<ConfigSchema>({
+export const configStore = new Store<ConfigSchema>({
   defaults: {
     deviceId:     randomUUID(),
     deviceAlias:  `Desktop-${os.hostname()}`,
     downloadPath: '',
   },
 });
-
-export default store;

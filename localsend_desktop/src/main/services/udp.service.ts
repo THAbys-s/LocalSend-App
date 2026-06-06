@@ -1,7 +1,7 @@
 import dgram from 'dgram';
 import os from 'os';
 import type { DeviceInfo, DeviceOS } from '../../shared/device.types';
-import configStore from '../store/config.store';
+import { configStore } from '../store/config.store';
 
 const UDP_PORT           = 53317;
 const BROADCAST_ADDR     = '255.255.255.255';
