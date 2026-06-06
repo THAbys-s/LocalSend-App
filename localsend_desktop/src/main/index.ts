@@ -1,6 +1,10 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { UdpDiscoveryService } from './services/udp.service';
+import { registerIpcHandlers } from './ipc/handlers';
+
+declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
+declare const MAIN_WINDOW_VITE_NAME: string;
 
 const udpService = new UdpDiscoveryService();
 
@@ -17,6 +21,7 @@ function createWindow(): BrowserWindow {
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    win.webContents.openDevTools();
   } else {
     win.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
@@ -28,9 +33,14 @@ function createWindow(): BrowserWindow {
 
 app.whenReady().then(() => {
   createWindow();
+  registerIpcHandlers();
 
   udpService.onDeviceFound = (device) => {
-    console.log('[Main] Nuevo dispositivo:', device);
+    console.log('[Main] Dispositivo encontrado:', device.alias, device.ip);
+  };
+
+  udpService.onDeviceLost = (deviceId) => {
+    console.log('[Main] Dispositivo perdido:', deviceId);
   };
 
   udpService.start();
@@ -44,7 +54,3 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   udpService.stop();
 });
-
-// Declaraciones de las variables que Forge inserta.
-declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
-declare const MAIN_WINDOW_VITE_NAME: string;

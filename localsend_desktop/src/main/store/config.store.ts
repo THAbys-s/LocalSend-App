@@ -1,11 +1,19 @@
 import Store from 'electron-store';
+import { randomUUID } from 'crypto';
+import os from 'os';
 
-const schema = {
-  alias: { type: 'string', default: 'LocalSend' },
-  destination: { type: 'string', default: '' },
-};
+interface ConfigSchema {
+  deviceId: string;
+  deviceAlias: string;
+  downloadPath: string;
+}
 
-export const configStore = new Store({
-  name: 'config',
-  schema,
+const store = new Store<ConfigSchema>({
+  defaults: {
+    deviceId:     randomUUID(),
+    deviceAlias:  `Desktop-${os.hostname()}`,
+    downloadPath: '',
+  },
 });
+
+export default store;

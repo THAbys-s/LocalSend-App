@@ -1,10 +1,13 @@
 export type DeviceType = 'desktop' | 'laptop' | 'mobile' | 'unknown';
 
+export type DeviceOS = 'windows' | 'macos' | 'linux' | 'android' | 'ios' | 'unknown';
+
 export interface DeviceInfo {
-  id: string;           
+  id: string;
+  alias: string;
   ip: string;
-  port: number;        
+  port: number;
   deviceType: DeviceType;
-  os: 'windows' | 'macos' | 'linux' | 'android' | 'ios' | 'unknown';
-  version: string;     
+  os: DeviceOS;
+  version: string;
 }
