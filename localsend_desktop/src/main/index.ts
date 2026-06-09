@@ -2,6 +2,12 @@ import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { UdpDiscoveryService } from './services/udp.service';
 import { registerIpcHandlers } from './ipc/handlers';
+import { createTcpService } from './services/tcp.service';
+import { DEFAULT_TCP_PORT } from '../shared/constants';
+
+const TCP_PORT = Number(
+  process.argv[2] ?? DEFAULT_TCP_PORT
+);
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -32,9 +38,10 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  createTcpService(TCP_PORT);
   createWindow();
-  registerIpcHandlers();
-
+  registerIpcHandlers(udpService);
+  
   udpService.onDeviceFound = (device) => {
     console.log('[Main] Dispositivo encontrado:', device.alias, device.ip);
   };
