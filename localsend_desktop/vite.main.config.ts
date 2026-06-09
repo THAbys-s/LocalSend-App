@@ -2,8 +2,15 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   build: {
+    outDir: '.vite/build',
+    emptyOutDir: true,
+    lib: {
+      entry: 'src/main/index.ts',
+      formats: ['cjs'],
+      fileName: () => 'index.js',
+    },
     rollupOptions: {
-      external: ['electron'],
+      external: ['electron', 'electron-store', 'dgram', 'os', 'crypto', 'fs', 'path', 'net', 'http'],
     },
   },
   resolve: {
