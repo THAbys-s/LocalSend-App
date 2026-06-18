@@ -11,13 +11,18 @@
       "resizeMode": "contain",
       "backgroundColor": "#0D1117"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.localsend.mobile",
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "LocalSend necesita acceso a la red local para descubrir computadoras cercanas y enviarles archivos sin usar Internet.",
-        "NSBonjourServices": ["_localsend._tcp", "_localsend._udp"],
+        "NSBonjourServices": [
+          "_localsend._tcp",
+          "_localsend._udp"
+        ],
         "NSPhotoLibraryUsageDescription": "LocalSend necesita acceso a tu galería para seleccionar fotos y videos.",
         "NSPhotoLibraryAddUsageDescription": "LocalSend puede guardar archivos recibidos en tu galería.",
         "NSAppTransportSecurity": {
@@ -71,7 +76,8 @@
           "color": "#00C896",
           "sounds": []
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {

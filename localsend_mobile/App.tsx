@@ -1,4 +1,6 @@
 import React from 'react';
+import { Buffer } from '@craftzdog/react-native-buffer'
+global.Buffer = Buffer;
 import { useColorScheme } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
