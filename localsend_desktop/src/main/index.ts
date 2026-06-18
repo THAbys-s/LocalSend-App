@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { UdpDiscoveryService } from './services/udp.service';
+import { WsTransferService } from './services/ws.service';
 import { registerIpcHandlers } from './ipc/handlers';
 import { createTcpService } from './services/tcp.service';
 import { DEFAULT_TCP_PORT } from '../shared/constants';
@@ -13,6 +14,8 @@ declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
 const udpService = new UdpDiscoveryService();
+const wsService = new WsTransferService(53317);
+let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -39,9 +42,10 @@ function createWindow(): BrowserWindow {
 
 app.whenReady().then(() => {
   createTcpService(TCP_PORT);
-  createWindow();
-  registerIpcHandlers(udpService);
-  
+  mainWindow = createWindow();
+
+  registerIpcHandlers(udpService, wsService, mainWindow);
+
   udpService.onDeviceFound = (device) => {
     console.log('[Main] Dispositivo encontrado:', device.alias, device.ip);
   };
@@ -51,13 +55,16 @@ app.whenReady().then(() => {
   };
 
   udpService.start();
+  wsService.start();
 });
 
 app.on('window-all-closed', () => {
   udpService.stop();
+  wsService.stop();
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('before-quit', () => {
   udpService.stop();
+  wsService.stop();
 });

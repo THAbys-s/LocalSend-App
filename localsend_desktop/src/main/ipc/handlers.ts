@@ -1,16 +1,44 @@
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import fs from 'fs';
 import path from 'path';
 
 import { channels } from '../../shared/channels';
 import { configStore } from '../store/config.store';
 import { UdpDiscoveryService } from '../services/udp.service';
+import { WsTransferService } from '../services/ws.service';
 import type { SendFilePayload } from '../../shared/transfer.types';
 
+export function registerIpcHandlers(
+  udpService: UdpDiscoveryService,
+  wsService: WsTransferService,
+  mainWindow: BrowserWindow
+) {
+  // Handle incoming transfer requests from mobile via WebSocket
+  wsService.on('transfer-request', (data) => {
+    console.log('[IPC] Enviando transfer-request al renderer');
+    mainWindow.webContents.send(channels.transferRequest, {
+      deviceId: data.deviceId,
+      alias: data.alias,
+      file: data.file,
+    });
+  });
 
-  export function registerIpcHandlers(
-    udpService: UdpDiscoveryService
-  ) {
+  // Handle user response (accept/reject) from renderer
+  ipcMain.handle(
+    channels.transferRespond,
+    async (_event, payload: { deviceId: string; accept: boolean; reason?: string }) => {
+      const { deviceId, accept, reason } = payload;
+
+      if (accept) {
+        wsService.accept(deviceId);
+      } else {
+        wsService.reject(deviceId, reason);
+      }
+
+      return { success: true };
+    }
+  );
+
   ipcMain.handle(
     channels.sendFile,
     async (

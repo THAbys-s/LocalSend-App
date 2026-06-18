@@ -17,3 +17,13 @@ export interface SendFilePayload {
   targetIp: string;
   deviceId: string;
 }
+
+export interface TransferRequestData {
+  deviceId: string;
+  alias: string;
+  file: {
+    name: string;
+    size: number;
+    mimeType: string;
+  };
+}
