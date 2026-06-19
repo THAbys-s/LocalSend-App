@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { DeviceInfo } from '../../../shared/device.types';
+import type { DeviceInfo } from '../../../shared/types';
 
 interface UseDiscoveryResult {
   devices: DeviceInfo[];

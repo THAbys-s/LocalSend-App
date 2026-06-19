@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import type { TransferRequestData } from '../../shared/transfer.types';
+import type { TransferRequestData } from '../../shared/types';
 
 interface PendingTransfer {
   deviceId: string;

@@ -10,7 +10,19 @@ export default defineConfig({
       fileName: () => 'index.js',
     },
     rollupOptions: {
-      external: ['electron', 'electron-store', 'dgram', 'os', 'crypto', 'fs', 'path', 'net', 'http'],
+      external: [
+        'electron',
+        'electron-store',
+        'dgram',
+        'os',
+        'crypto',
+        'fs',
+        'path',
+        'net',
+        'http',
+        'bufferutil',
+        'utf-8-validate',
+      ],
     },
   },
   resolve: {

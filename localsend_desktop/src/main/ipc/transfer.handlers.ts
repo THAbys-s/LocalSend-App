@@ -3,13 +3,10 @@ import fs from 'fs';
 import path from 'path';
 
 import { channels } from '../../shared/channels';
-import { configStore } from '../store/config.store';
-import { UdpDiscoveryService } from '../services/udp.service';
 import { WsTransferService } from '../services/ws.service';
-import type { SendFilePayload } from '../../shared/transfer.types';
+import type { SendFilePayload } from '../../shared/types';
 
-export function registerIpcHandlers(
-  udpService: UdpDiscoveryService,
+export function registerTransferHandlers(
   wsService: WsTransferService,
   mainWindow: BrowserWindow
 ) {
@@ -90,16 +87,4 @@ export function registerIpcHandlers(
       }
     }
   );
-
-  ipcMain.handle(channels.getDevices, async () => {
-    return { devices: [] };
-  });
-
-  ipcMain.handle(channels.setConfig, async (_event, config) => {
-    configStore.set(config);
-
-    return {
-      success: true,
-    };
-  });
 }

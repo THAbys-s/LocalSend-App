@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { AvailabilityIndicator } from '../components/AvailabilityIndicator';
-import { DropZone } from '../components/DropZone';
-import { DeviceList } from '../components/DeviceList';
-import { TransferMonitor } from '../components/TransferMonitor';
-import { NotificationCenter } from '../components/NotificationCenter';
-import { useServer } from '../hooks/useServer';
-import { useDiscovery } from '../hooks/useDiscovery';
-import { useTransfer } from '../hooks/useTransfer';
+import { AvailabilityIndicator } from '../renderer/components/AvailabilityIndicator';
+import { DropZone } from '../renderer/components/DropZone';
+import { DeviceList } from '../renderer/components/DeviceList';
+import { TransferMonitor } from '../renderer/components/TransferMonitor.tsx';
+import { NotificationCenter } from '../renderer/components/NotificationCenter';
+import { TransferConfirmDialog } from '../renderer/components/TransferConfirmDialog';
+import { useServer } from './hooks/useServer';
+import { useDiscovery } from './hooks/useDiscovery';
+import { useTransfer } from './hooks/useTransfer';
+import type { TransferRequestData } from '../shared/types';
 
 const styles = {
   root: {
@@ -111,10 +113,26 @@ export default function App() {
   const { devices } = useDiscovery();
   const { transfer, startTransfer, cancelTransfer } = useTransfer();
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: 'info' | 'success' | 'error' }>>([]);
+  const [incomingTransfer, setIncomingTransfer] = useState<TransferRequestData | null>(null);
+  const [respondingTransfer, setRespondingTransfer] = useState<string | null>(null);
 
   useEffect(() => {
     startServer();
     return () => stopServer();
+  }, []);
+
+  useEffect(() => {
+    if (!window.electronAPI) return;
+
+    window.electronAPI.onTransferRequest((data) => {
+      console.log('[App] Incoming transfer request:', data);
+      setIncomingTransfer(data);
+      addNotification(`${data.alias} desea enviar: ${data.file.name}`, 'info');
+    });
+
+    return () => {
+      window.electronAPI.removeAllListeners('transfer:request');
+    };
   }, []);
 
   const handleFileDrop = async (files: File[]) => {
@@ -122,6 +140,38 @@ export default function App() {
     const file = files[0];
     startTransfer(file);
     addNotification(`Archivo seleccionado: ${file.name}`, 'info');
+  };
+
+  const handleAcceptTransfer = async () => {
+    if (!incomingTransfer) return;
+
+    setRespondingTransfer(incomingTransfer.deviceId);
+    try {
+      await window.electronAPI.respondTransfer(incomingTransfer.deviceId, true);
+      addNotification(`Transferencia aceptada de ${incomingTransfer.alias}`, 'success');
+      setIncomingTransfer(null);
+    } catch (err) {
+      console.error('Error accepting transfer:', err);
+      addNotification('Error al aceptar la transferencia', 'error');
+    } finally {
+      setRespondingTransfer(null);
+    }
+  };
+
+  const handleRejectTransfer = async (reason?: string) => {
+    if (!incomingTransfer) return;
+
+    setRespondingTransfer(incomingTransfer.deviceId);
+    try {
+      await window.electronAPI.respondTransfer(incomingTransfer.deviceId, false, reason);
+      addNotification(`Transferencia rechazada de ${incomingTransfer.alias}`, 'info');
+      setIncomingTransfer(null);
+    } catch (err) {
+      console.error('Error rejecting transfer:', err);
+      addNotification('Error al rechazar la transferencia', 'error');
+    } finally {
+      setRespondingTransfer(null);
+    }
   };
 
   const addNotification = (message: string, type: 'info' | 'success' | 'error') => {
@@ -179,6 +229,12 @@ export default function App() {
       </main>
 
       <NotificationCenter notifications={notifications} />
+      <TransferConfirmDialog
+        transfer={incomingTransfer}
+        onAccept={handleAcceptTransfer}
+        onReject={handleRejectTransfer}
+        isLoading={respondingTransfer !== null}
+      />
 
       <style>{`
         * {
