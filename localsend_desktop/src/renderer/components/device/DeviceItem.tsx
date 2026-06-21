@@ -1,20 +1,14 @@
 import React, { useState } from 'react';
-
-interface Device {
-  id: string;
-  alias: string;
-  ip: string;
-  type: 'phone' | 'tablet' | 'pc' | 'unknown';
-}
+import type { DeviceInfo } from '../../shared/types/device.types';
 
 interface Props {
-  device: Device;
+  device: DeviceInfo;
 }
 
 const DEVICE_ICONS: Record<string, string> = {
-  phone: '📱',
-  tablet: '📱',
-  pc: '🖥',
+  mobile: '📱',
+  laptop: '💻',
+  desktop: '🖥',
   unknown: '💻',
 };
 

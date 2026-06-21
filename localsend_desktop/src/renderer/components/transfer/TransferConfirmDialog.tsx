@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { TransferRequestData } from '../../shared/types';
+import { formatBytes } from '../../utils/format';
 
 interface Props {
   transfer: TransferRequestData | null;
@@ -63,11 +64,6 @@ const styles = {
     fontWeight: 500,
     textTransform: 'uppercase' as const,
     letterSpacing: '0.5px',
-  },
-  value: {
-    fontSize: '14px',
-    fontWeight: 600,
-    color: '#0D1117',
   },
   valueAlias: {
     fontSize: '16px',

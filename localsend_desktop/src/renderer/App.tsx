@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { AvailabilityIndicator } from '../renderer/components/AvailabilityIndicator';
-import { DropZone } from '../renderer/components/DropZone';
-import { DeviceList } from '../renderer/components/DeviceList';
-import { TransferMonitor } from '../renderer/components/TransferMonitor.tsx';
-import { NotificationCenter } from '../renderer/components/NotificationCenter';
-import { TransferConfirmDialog } from '../renderer/components/TransferConfirmDialog';
+import { AvailabilityIndicator } from './components/ui/AvailabilityIndicator';
+import { DropZone } from './components/transfer/DropZone';
+import { DeviceList } from './components/device/DeviceList';
+import { TransferMonitor } from './components/transfer/TransferMonitor';
+import { NotificationCenter } from './components/ui/NotificationCenter';
+import { TransferConfirmDialog } from './components/transfer/TransferConfirmDialog';
 import { useServer } from './hooks/useServer';
 import { useDiscovery } from './hooks/useDiscovery';
 import { useTransfer } from './hooks/useTransfer';

@@ -1,5 +1,5 @@
-import { app, BrowserWindow } from 'electron';
 import path from 'path';
+import { app, BrowserWindow } from 'electron';
 import { UdpDiscoveryService } from './services/udp.service';
 import { WsTransferService } from './services/ws.service';
 import { registerIpcHandlers } from './ipc';
