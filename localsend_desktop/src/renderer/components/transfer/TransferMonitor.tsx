@@ -1,19 +1,87 @@
 import React, { useState } from 'react';
+import type { Transfer } from '../../../shared/types';
 import { formatBytes, formatSpeed, formatTime } from '../../utils/format';
-
-interface Transfer {
-  fileName: string;
-  progress: number;
-  bytesSent: number;
-  totalBytes: number;
-  speed: number;
-  status: 'connecting' | 'transferring' | 'complete' | 'error';
-}
 
 interface Props {
   transfer: Transfer;
   onCancel: () => void;
 }
+
+export function TransferMonitor({ transfer, onCancel }: Props) {
+  const [cancelHover, setCancelHover] = useState(false);
+
+  const isComplete = transfer.status === 'complete';
+  const isError    = transfer.status === 'error';
+
+  const percentComplete = (transfer.progress * 100).toFixed(1);
+  const timeRemaining   = transfer.speed > 0
+    ? formatTime((transfer.totalBytes - transfer.bytesSent) / transfer.speed)
+    : '--';
+
+  return (
+    <div style={{
+      ...styles.container,
+      ...(isComplete && styles.containerComplete),
+      ...(isError    && styles.containerError),
+    }}>
+      <div style={styles.header}>
+        <h3 style={styles.title}>
+          {isComplete && '✓ '}
+          {isError    && '✕ '}
+          {transfer.fileName}
+        </h3>
+        {!isComplete && !isError && (
+          <button
+            style={{
+              ...styles.cancelBtn,
+              color: cancelHover ? '#0D1117' : '#6B7280',
+              transform: cancelHover ? 'scale(1.1)' : 'scale(1)',
+            }}
+            onClick={onCancel}
+            onMouseEnter={() => setCancelHover(true)}
+            onMouseLeave={() => setCancelHover(false)}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      <div style={styles.progressContainer}>
+        <div style={styles.progressBar}>
+          <div style={{
+            ...styles.progressFill,
+            width: `${Math.min(transfer.progress * 100, 100)}%`,
+          }} />
+        </div>
+        <p style={styles.percent}>{percentComplete}%</p>
+      </div>
+
+      <div style={styles.stats}>
+        <div style={styles.stat}>
+          <span style={styles.statLabel}>Velocidad</span>
+          <span style={styles.statValue}>{formatSpeed(transfer.speed)}</span>
+        </div>
+        <div style={styles.stat}>
+          <span style={styles.statLabel}>Progreso</span>
+          <span style={styles.statValue}>
+            {formatBytes(transfer.bytesSent)} / {formatBytes(transfer.totalBytes)}
+          </span>
+        </div>
+        {transfer.status === 'transferring' && (
+          <div style={styles.stat}>
+            <span style={styles.statLabel}>Estimado</span>
+            <span style={styles.statValue}>{timeRemaining}</span>
+          </div>
+        )}
+      </div>
+
+      {isError && (
+        <p style={styles.error}>La transferencia falló. Revisa tu conexión.</p>
+      )}
+    </div>
+  );
+}
+
 
 const styles = {
   container: {
@@ -51,7 +119,6 @@ const styles = {
     border: 'none',
     fontSize: '20px',
     cursor: 'pointer',
-    color: '#6B7280',
     padding: '4px 8px',
     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
   },
@@ -80,6 +147,7 @@ const styles = {
     color: '#00C896',
     minWidth: '45px',
     textAlign: 'right' as const,
+    margin: 0,
   },
   stats: {
     display: 'grid',
@@ -118,82 +186,3 @@ const styles = {
     borderRadius: '12px',
   },
 };
-
-export function TransferMonitor({ transfer, onCancel }: Props) {
-  const [cancelHover, setCancelHover] = useState(false);
-  
-  const percentComplete = (transfer.progress * 100).toFixed(1);
-  const timeRemaining = transfer.speed > 0
-    ? formatTime((transfer.totalBytes - transfer.bytesSent) / transfer.speed)
-    : '--';
-
-  const isComplete = transfer.status === 'complete';
-  const isError = transfer.status === 'error';
-
-  const containerStyle = {
-    ...styles.container,
-    ...(isComplete && styles.containerComplete),
-    ...(isError && styles.containerError),
-  };
-
-  return (
-    <div style={containerStyle}>
-      <div style={styles.header}>
-        <h3 style={styles.title}>
-          {isComplete && '✓ '}
-          {isError && '✕ '}
-          {transfer.fileName}
-        </h3>
-        {!isComplete && !isError && (
-          <button
-            style={{
-              ...styles.cancelBtn,
-              color: cancelHover ? '#0D1117' : '#6B7280',
-              transform: cancelHover ? 'scale(1.1)' : 'scale(1)',
-            }}
-            onClick={onCancel}
-            onMouseEnter={() => setCancelHover(true)}
-            onMouseLeave={() => setCancelHover(false)}
-          >
-            ✕
-          </button>
-        )}
-      </div>
-
-      <div style={styles.progressContainer}>
-        <div style={styles.progressBar}>
-          <div
-            style={{
-              ...styles.progressFill,
-              width: `${Math.min(transfer.progress * 100, 100)}%`,
-            }}
-          />
-        </div>
-        <p style={styles.percent}>{percentComplete}%</p>
-      </div>
-
-      <div style={styles.stats}>
-        <div style={styles.stat}>
-          <span style={styles.statLabel}>Velocidad</span>
-          <span style={styles.statValue}>{formatSpeed(transfer.speed)}</span>
-        </div>
-        <div style={styles.stat}>
-          <span style={styles.statLabel}>Progreso</span>
-          <span style={styles.statValue}>
-            {formatBytes(transfer.bytesSent)} / {formatBytes(transfer.totalBytes)}
-          </span>
-        </div>
-        {transfer.status === 'transferring' && (
-          <div style={styles.stat}>
-            <span style={styles.statLabel}>Estimado</span>
-            <span style={styles.statValue}>{timeRemaining}</span>
-          </div>
-        )}
-      </div>
-
-      {isError && (
-        <p style={styles.error}>La transferencia falló. Revisa tu conexión.</p>
-      )}
-    </div>
-  );
-}

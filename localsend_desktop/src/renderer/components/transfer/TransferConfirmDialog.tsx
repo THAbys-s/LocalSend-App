@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { TransferRequestData } from '../../shared/types';
+import React, { useState } from 'react';
+import type { TransferRequestData } from '../../../shared/types';
 import { formatBytes } from '../../utils/format';
 
 interface Props {
@@ -7,6 +7,74 @@ interface Props {
   onAccept: () => void;
   onReject: (reason?: string) => void;
   isLoading?: boolean;
+}
+
+function getFileIcon(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return '🖼';
+  if (['mp4', 'avi', 'mov', 'mkv'].includes(ext))           return '🎬';
+  if (ext === 'pdf')                                         return '📄';
+  if (['zip', 'rar', '7z'].includes(ext))                   return '📦';
+  return '📁';
+}
+
+export function TransferConfirmDialog({
+  transfer,
+  onAccept,
+  onReject,
+  isLoading = false,
+}: Props) {
+  const [rejectHover, setRejectHover] = useState(false);
+  const [acceptHover, setAcceptHover] = useState(false);
+
+  if (!transfer) return null;
+
+  return (
+    <div style={styles.overlay}>
+      <div style={styles.dialog}>
+        <div style={styles.header}>
+          <h2 style={styles.title}>Solicitud de transferencia</h2>
+          <p style={styles.subtitle}>Confirma antes de recibir el archivo</p>
+        </div>
+
+        <div style={styles.content}>
+          <div style={styles.contentRow}>
+            <span style={styles.label}>Desde</span>
+            <span style={styles.valueAlias}>{transfer.alias}</span>
+          </div>
+          <div style={{ ...styles.contentRow, ...styles.contentRowLast }}>
+            <div>
+              <div style={styles.label}>Archivo</div>
+              <span style={styles.fileIcon}>{getFileIcon(transfer.file.name)}</span>
+              <div style={styles.fileName}>{transfer.file.name}</div>
+              <div style={styles.fileSize}>{formatBytes(transfer.file.size)}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={styles.actions}>
+          <button
+            style={{ ...styles.button, ...styles.rejectBtn, ...(rejectHover && styles.rejectBtnHover) }}
+            onClick={() => onReject()}
+            onMouseEnter={() => setRejectHover(true)}
+            onMouseLeave={() => setRejectHover(false)}
+            disabled={isLoading}
+          >
+            Rechazar
+          </button>
+          <button
+            style={{ ...styles.button, ...styles.acceptBtn, ...(acceptHover && styles.acceptBtnHover), opacity: isLoading ? 0.6 : 1 }}
+            onClick={onAccept}
+            onMouseEnter={() => setAcceptHover(true)}
+            onMouseLeave={() => setAcceptHover(false)}
+            disabled={isLoading}
+          >
+            {isLoading ? '⏳ Aceptando...' : 'Aceptar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const styles = {
@@ -124,103 +192,3 @@ const styles = {
     boxShadow: '0 4px 12px rgba(0, 200, 150, 0.3)',
   },
 };
-
-function formatBytes(bytes: number): string {
-  if (!bytes) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-}
-
-export function TransferConfirmDialog({
-  transfer,
-  onAccept,
-  onReject,
-  isLoading = false,
-}: Props) {
-  const [rejectHover, setRejectHover] = useState(false);
-  const [acceptHover, setAcceptHover] = useState(false);
-
-  if (!transfer) return null;
-
-  const getFileIcon = (): string => {
-    const ext = transfer.file.name.split('.').pop()?.toLowerCase() || '';
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return '🖼';
-    if (['mp4', 'avi', 'mov', 'mkv'].includes(ext)) return '🎬';
-    if (['pdf'].includes(ext)) return '📄';
-    if (['zip', 'rar', '7z'].includes(ext)) return '📦';
-    return '📁';
-  };
-
-  return (
-    <div style={styles.overlay}>
-      <style>{`
-        @keyframes slideIn {
-          from {
-            transform: translateY(20px);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-      `}</style>
-      <div style={styles.dialog}>
-        <div style={styles.header}>
-          <h2 style={styles.title}>Solicitud de transferencia</h2>
-          <p style={styles.subtitle}>Confirma antes de recibir el archivo</p>
-        </div>
-
-        <div style={styles.content}>
-          <div style={styles.contentRow}>
-            <span style={styles.label}>Desde</span>
-            <span style={styles.valueAlias}>{transfer.alias}</span>
-          </div>
-
-          <div style={{ ...styles.contentRow, ...styles.contentRowLast }}>
-            <div>
-              <div style={styles.label}>Archivo</div>
-              <div style={styles.fileInfo}>
-                <span style={styles.fileIcon}>{getFileIcon()}</span>
-              </div>
-              <div style={styles.fileName}>{transfer.file.name}</div>
-              <div style={styles.fileSize}>{formatBytes(transfer.file.size)}</div>
-            </div>
-          </div>
-        </div>
-
-        <div style={styles.actions}>
-          <button
-            style={{
-              ...styles.button,
-              ...styles.rejectBtn,
-              ...(rejectHover && styles.rejectBtnHover),
-            }}
-            onClick={() => onReject()}
-            onMouseEnter={() => setRejectHover(true)}
-            onMouseLeave={() => setRejectHover(false)}
-            disabled={isLoading}
-          >
-            Rechazar
-          </button>
-          <button
-            style={{
-              ...styles.button,
-              ...styles.acceptBtn,
-              ...(acceptHover && styles.acceptBtnHover),
-              opacity: isLoading ? 0.6 : 1,
-            }}
-            onClick={onAccept}
-            onMouseEnter={() => setAcceptHover(true)}
-            onMouseLeave={() => setAcceptHover(false)}
-            disabled={isLoading}
-          >
-            {isLoading ? '⏳ Aceptando...' : 'Aceptar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}

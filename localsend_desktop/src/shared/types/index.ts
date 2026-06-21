@@ -9,8 +9,8 @@ declare global {
     };
   }
 }
-export type DeviceType = 'desktop' | 'laptop' | 'mobile' | 'unknown';
 
+export type DeviceType = 'desktop' | 'laptop' | 'mobile' | 'unknown';
 export type DeviceOS = 'windows' | 'macos' | 'linux' | 'android' | 'ios' | 'unknown';
 
 export interface DeviceInfo {
@@ -51,4 +51,15 @@ export interface TransferRequestData {
     size: number;
     mimeType: string;
   };
+}
+
+export type TransferStatus = 'connecting' | 'transferring' | 'complete' | 'error';
+
+export interface Transfer {
+  fileName:   string;
+  progress:   number;
+  bytesSent:  number;
+  totalBytes: number;
+  speed:      number;
+  status:     TransferStatus;
 }

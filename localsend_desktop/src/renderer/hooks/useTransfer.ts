@@ -1,13 +1,5 @@
 import { useState } from 'react';
-
-interface Transfer {
-  fileName:   string;
-  progress:   number;
-  bytesSent:  number;
-  totalBytes: number;
-  speed:      number;
-  status:     'connecting' | 'transferring' | 'complete' | 'error';
-}
+import type { Transfer } from '../../shared/types';
 
 interface UseTransferResult {
   transfer:       Transfer | null;
@@ -18,7 +10,7 @@ interface UseTransferResult {
 export function useTransfer(): UseTransferResult {
   const [transfer, setTransfer] = useState<Transfer | null>(null);
 
-  const startTransfer = async (file: File) => {
+  const startTransfer = (file: File) => {
     setTransfer({
       fileName:   file.name,
       progress:   0,
@@ -28,51 +20,42 @@ export function useTransfer(): UseTransferResult {
       status:     'connecting',
     });
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', 'http://localhost:53318/upload');
+    xhr.setRequestHeader('x-file-name', encodeURIComponent(file.name));
 
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', 'http://localhost:53318/upload');
-      xhr.setRequestHeader('x-file-name', encodeURIComponent(file.name));
+    let lastLoaded = 0;
+    let lastTime   = Date.now();
 
-      let lastLoaded = 0;
-      let lastTime   = Date.now();
+    xhr.upload.onprogress = (event) => {
+      const now     = Date.now();
+      const elapsed = (now - lastTime) / 1000;
+      const speed   = elapsed > 0 ? (event.loaded - lastLoaded) / elapsed : 0;
 
-      xhr.upload.onprogress = (event) => {
-        const now     = Date.now();
-        const elapsed = (now - lastTime) / 1000;
-        const delta   = event.loaded - lastLoaded;
-        const speed   = elapsed > 0 ? delta / elapsed : 0;
+      lastLoaded = event.loaded;
+      lastTime   = now;
 
-        lastLoaded = event.loaded;
-        lastTime   = now;
+      setTransfer(prev => prev ? {
+        ...prev,
+        status:    'transferring',
+        progress:  event.loaded / event.total,
+        bytesSent: event.loaded,
+        speed,
+      } : null);
+    };
 
-        setTransfer(prev => prev ? {
-          ...prev,
-          status:    'transferring',
-          progress:  event.loaded / event.total,
-          bytesSent: event.loaded,
-          speed,
-        } : null);
-      };
+    xhr.onload = () => {
+      setTransfer(prev => prev
+        ? { ...prev, status: xhr.status === 200 ? 'complete' : 'error', progress: 1 }
+        : null
+      );
+    };
 
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          setTransfer(prev => prev ? { ...prev, status: 'complete', progress: 1 } : null);
-        } else {
-          setTransfer(prev => prev ? { ...prev, status: 'error' } : null);
-        }
-      };
-
-      xhr.onerror = () => {
-        setTransfer(prev => prev ? { ...prev, status: 'error' } : null);
-      };
-
-      xhr.send(formData);
-    } catch {
+    xhr.onerror = () => {
       setTransfer(prev => prev ? { ...prev, status: 'error' } : null);
-    }
+    };
+
+    xhr.send(new FormData());
   };
 
   const cancelTransfer = () => setTransfer(null);

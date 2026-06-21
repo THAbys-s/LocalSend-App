@@ -1,14 +1,163 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { AvailabilityIndicator } from './components/ui/AvailabilityIndicator';
 import { DropZone } from './components/transfer/DropZone';
 import { DeviceList } from './components/device/DeviceList';
 import { TransferMonitor } from './components/transfer/TransferMonitor';
 import { NotificationCenter } from './components/ui/NotificationCenter';
 import { TransferConfirmDialog } from './components/transfer/TransferConfirmDialog';
-import { useServer } from './hooks/useServer';
 import { useDiscovery } from './hooks/useDiscovery';
 import { useTransfer } from './hooks/useTransfer';
 import type { TransferRequestData } from '../shared/types';
+
+export default function App() {
+  const { devices } = useDiscovery();
+  const { transfer, startTransfer, cancelTransfer } = useTransfer();
+  const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: 'info' | 'success' | 'error' }>>([]);
+  const [incomingTransfer, setIncomingTransfer] = useState<TransferRequestData | null>(null);
+  const [respondingTransfer, setRespondingTransfer] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!window.electronAPI) return;
+
+    window.electronAPI.onTransferRequest((data) => {
+      console.log('[App] Incoming transfer request:', data);
+      setIncomingTransfer(data);
+      addNotification(`${data.alias} desea enviar: ${data.file.name}`, 'info');
+    });
+
+    return () => {
+      window.electronAPI.removeAllListeners('transfer:request');
+    };
+  }, []);
+
+  const handleFileDrop = async (files: File[]) => {
+    if (files.length === 0) return;
+    const file = files[0];
+    startTransfer(file);
+    addNotification(`Archivo seleccionado: ${file.name}`, 'info');
+  };
+
+  const handleAcceptTransfer = async () => {
+    if (!incomingTransfer) return;
+
+    setRespondingTransfer(incomingTransfer.deviceId);
+    try {
+      await window.electronAPI.respondTransfer(incomingTransfer.deviceId, true);
+      addNotification(`Transferencia aceptada de ${incomingTransfer.alias}`, 'success');
+      setIncomingTransfer(null);
+    } catch (err) {
+      console.error('Error accepting transfer:', err);
+      addNotification('Error al aceptar la transferencia', 'error');
+    } finally {
+      setRespondingTransfer(null);
+    }
+  };
+
+  const handleRejectTransfer = async (reason?: string) => {
+    if (!incomingTransfer) return;
+
+    setRespondingTransfer(incomingTransfer.deviceId);
+    try {
+      await window.electronAPI.respondTransfer(incomingTransfer.deviceId, false, reason);
+      addNotification(`Transferencia rechazada de ${incomingTransfer.alias}`, 'info');
+      setIncomingTransfer(null);
+    } catch (err) {
+      console.error('Error rejecting transfer:', err);
+      addNotification('Error al rechazar la transferencia', 'error');
+    } finally {
+      setRespondingTransfer(null);
+    }
+  };
+
+  const addNotification = (message: string, type: 'info' | 'success' | 'error') => {
+    const id = Date.now().toString();
+    setNotifications(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4000);
+  };
+
+  return (
+    <div style={styles.root}>
+      <header style={styles.header}>
+        <div style={styles.headerContent}>
+          <h1 style={styles.appTitle}>
+            <span style={styles.appIcon}>📤</span>
+            LocalSend
+          </h1>
+          <AvailabilityIndicator isActive={true} />
+        </div>
+      </header>
+
+      <main style={styles.mainContent}>
+        <aside style={styles.leftPanel}>
+          <h2 style={styles.panelTitle}>Dispositivos</h2>
+          <DeviceList devices={devices} />
+        </aside>
+
+        <section style={styles.centerPanel}>
+          <DropZone onFileDrop={handleFileDrop} />
+          {transfer && (
+            <TransferMonitor transfer={transfer} onCancel={cancelTransfer} />
+          )}
+        </section>
+
+        <aside style={styles.rightPanel}>
+          <div style={styles.statsCard}>
+            <h3 style={styles.statsCardTitle}>Conectados</h3>
+            <p style={styles.statNumber}>{devices.length}</p>
+          </div>
+          <div style={styles.statsCard}>
+            {transfer ? (
+              <>
+                <h3 style={styles.statsCardTitle}>Transferencia</h3>
+                <p style={styles.statNumber}>{(transfer.progress * 100).toFixed(0)}%</p>
+              </>
+            ) : (
+              <>
+                <h3 style={styles.statsCardTitle}>Estado</h3>
+                <p style={styles.statStatus}>Activo</p>
+              </>
+            )}
+          </div>
+        </aside>
+      </main>
+
+      <NotificationCenter notifications={notifications} />
+      <TransferConfirmDialog
+        transfer={incomingTransfer}
+        onAccept={handleAcceptTransfer}
+        onReject={handleRejectTransfer}
+        isLoading={respondingTransfer !== null}
+      />
+
+      <style>{`
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        body {
+          color: #0D1117;
+        }
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #E8EDF2;
+          border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #6B7280;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 
 const styles = {
   root: {
@@ -107,158 +256,3 @@ const styles = {
     color: '#10B981',
   },
 };
-
-export default function App() {
-  const { isListening, startServer, stopServer } = useServer();
-  const { devices } = useDiscovery();
-  const { transfer, startTransfer, cancelTransfer } = useTransfer();
-  const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: 'info' | 'success' | 'error' }>>([]);
-  const [incomingTransfer, setIncomingTransfer] = useState<TransferRequestData | null>(null);
-  const [respondingTransfer, setRespondingTransfer] = useState<string | null>(null);
-
-  useEffect(() => {
-    startServer();
-    return () => stopServer();
-  }, []);
-
-  useEffect(() => {
-    if (!window.electronAPI) return;
-
-    window.electronAPI.onTransferRequest((data) => {
-      console.log('[App] Incoming transfer request:', data);
-      setIncomingTransfer(data);
-      addNotification(`${data.alias} desea enviar: ${data.file.name}`, 'info');
-    });
-
-    return () => {
-      window.electronAPI.removeAllListeners('transfer:request');
-    };
-  }, []);
-
-  const handleFileDrop = async (files: File[]) => {
-    if (files.length === 0) return;
-    const file = files[0];
-    startTransfer(file);
-    addNotification(`Archivo seleccionado: ${file.name}`, 'info');
-  };
-
-  const handleAcceptTransfer = async () => {
-    if (!incomingTransfer) return;
-
-    setRespondingTransfer(incomingTransfer.deviceId);
-    try {
-      await window.electronAPI.respondTransfer(incomingTransfer.deviceId, true);
-      addNotification(`Transferencia aceptada de ${incomingTransfer.alias}`, 'success');
-      setIncomingTransfer(null);
-    } catch (err) {
-      console.error('Error accepting transfer:', err);
-      addNotification('Error al aceptar la transferencia', 'error');
-    } finally {
-      setRespondingTransfer(null);
-    }
-  };
-
-  const handleRejectTransfer = async (reason?: string) => {
-    if (!incomingTransfer) return;
-
-    setRespondingTransfer(incomingTransfer.deviceId);
-    try {
-      await window.electronAPI.respondTransfer(incomingTransfer.deviceId, false, reason);
-      addNotification(`Transferencia rechazada de ${incomingTransfer.alias}`, 'info');
-      setIncomingTransfer(null);
-    } catch (err) {
-      console.error('Error rejecting transfer:', err);
-      addNotification('Error al rechazar la transferencia', 'error');
-    } finally {
-      setRespondingTransfer(null);
-    }
-  };
-
-  const addNotification = (message: string, type: 'info' | 'success' | 'error') => {
-    const id = Date.now().toString();
-    setNotifications(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 4000);
-  };
-
-  return (
-    <div style={styles.root}>
-      <header style={styles.header}>
-        <div style={styles.headerContent}>
-          <h1 style={styles.appTitle}>
-            <span style={styles.appIcon}>📤</span>
-            LocalSend
-          </h1>
-          <AvailabilityIndicator isActive={isListening} />
-        </div>
-      </header>
-
-      <main style={styles.mainContent}>
-        <aside style={styles.leftPanel}>
-          <h2 style={styles.panelTitle}>Dispositivos</h2>
-          <DeviceList devices={devices} />
-        </aside>
-
-        <section style={styles.centerPanel}>
-          <DropZone onFileDrop={handleFileDrop} />
-          {transfer && (
-            <TransferMonitor transfer={transfer} onCancel={cancelTransfer} />
-          )}
-        </section>
-
-        <aside style={styles.rightPanel}>
-          <div style={styles.statsCard}>
-            <h3 style={styles.statsCardTitle}>Conectados</h3>
-            <p style={styles.statNumber}>{devices.length}</p>
-          </div>
-          <div style={styles.statsCard}>
-            {transfer ? (
-              <>
-                <h3 style={styles.statsCardTitle}>Transferencia</h3>
-                <p style={styles.statNumber}>{(transfer.progress * 100).toFixed(0)}%</p>
-              </>
-            ) : (
-              <>
-                <h3 style={styles.statsCardTitle}>Estado</h3>
-                <p style={styles.statStatus}>{isListening ? 'Activo' : 'Inactivo'}</p>
-              </>
-            )}
-          </div>
-        </aside>
-      </main>
-
-      <NotificationCenter notifications={notifications} />
-      <TransferConfirmDialog
-        transfer={incomingTransfer}
-        onAccept={handleAcceptTransfer}
-        onReject={handleRejectTransfer}
-        isLoading={respondingTransfer !== null}
-      />
-
-      <style>{`
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        body {
-          color: #0D1117;
-        }
-        ::-webkit-scrollbar {
-          width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #E8EDF2;
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: #6B7280;
-        }
-      `}</style>
-    </div>
-  );
-}

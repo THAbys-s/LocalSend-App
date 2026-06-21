@@ -1,15 +1,37 @@
-import React from 'react';
+import type { DeviceInfo } from '../../../shared/types';
 import { DeviceItem } from './DeviceItem';
 
-interface Device {
-  id: string;
-  alias: string;
-  ip: string;
-  type: 'phone' | 'tablet' | 'pc' | 'unknown';
+interface Props {
+  devices: DeviceInfo[];
 }
 
-interface Props {
-  devices: Device[];
+export function DeviceList({ devices }: Props) {
+  if (devices.length === 0) {
+    return (
+      <>
+        <div style={{ ...styles.container, ...styles.empty }}>
+          <div style={styles.emptyState}>
+            <span style={styles.emptyIcon}>📡</span>
+            <p style={styles.emptyText}>Esperando dispositivos...</p>
+          </div>
+        </div>
+        <style>{`
+          @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+          }
+        `}</style>
+      </>
+    );
+  }
+
+  return (
+    <div style={styles.container}>
+      {devices.map(device => (
+        <DeviceItem key={device.id} device={device} />
+      ))}
+    </div>
+  );
 }
 
 const styles = {
@@ -44,32 +66,3 @@ const styles = {
     margin: 0,
   },
 };
-
-export function DeviceList({ devices }: Props) {
-  if (devices.length === 0) {
-    return (
-      <>
-        <div style={{ ...styles.container, ...styles.empty }}>
-          <div style={styles.emptyState}>
-            <p style={styles.emptyIcon}>📡</p>
-            <p style={styles.emptyText}>Esperando dispositivos...</p>
-          </div>
-        </div>
-        <style>{`
-          @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
-          }
-        `}</style>
-      </>
-    );
-  }
-
-  return (
-    <div style={styles.container}>
-      {devices.map(device => (
-        <DeviceItem key={device.id} device={device} />
-      ))}
-    </div>
-  );
-}

@@ -1,16 +1,44 @@
-import React, { useState } from 'react';
-import type { DeviceInfo } from '../../shared/types/device.types';
+import { useState } from 'react';
+import type { DeviceInfo } from '../../../shared/types';
 
 interface Props {
   device: DeviceInfo;
 }
 
 const DEVICE_ICONS: Record<string, string> = {
-  mobile: '📱',
-  laptop: '💻',
   desktop: '🖥',
-  unknown: '💻',
+  laptop:  '💻',
+  mobile:  '📱',
+  unknown: '📱',
 };
+
+export function DeviceItem({ device }: Props) {
+  const [isHover, setIsHover] = useState(false);
+
+  return (
+    <>
+      <div
+        style={{ ...styles.container, ...(isHover && styles.containerHover) }}
+        onMouseEnter={() => setIsHover(true)}
+        onMouseLeave={() => setIsHover(false)}
+      >
+        <div style={styles.icon}>{DEVICE_ICONS[device.deviceType] ?? '💻'}</div>
+        <div style={styles.info}>
+          <p style={styles.name}>{device.alias}</p>
+          <p style={styles.ip}>{device.ip}</p>
+        </div>
+        <div style={styles.statusDot} />
+      </div>
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+      `}</style>
+    </>
+  );
+}
+
 
 const styles = {
   container: {
@@ -29,19 +57,12 @@ const styles = {
     backgroundColor: 'rgba(0, 200, 150, 0.02)',
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.06)',
   },
-  icon: {
-    fontSize: '24px',
-    flexShrink: 0,
-  },
-  info: {
-    flex: 1,
-    minWidth: 0,
-  },
+  icon: { fontSize: '24px', flexShrink: 0 },
+  info: { flex: 1, minWidth: 0 },
   name: {
     fontSize: '14px',
     fontWeight: 600,
     color: '#0D1117',
-    marginBottom: '2px',
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden' as const,
     textOverflow: 'ellipsis',
@@ -53,10 +74,6 @@ const styles = {
     fontFamily: 'monospace',
     margin: 0,
   },
-  status: {
-    display: 'flex',
-    alignItems: 'center',
-  },
   statusDot: {
     width: '8px',
     height: '8px',
@@ -65,33 +82,3 @@ const styles = {
     animation: 'pulse 2s ease-in-out infinite',
   },
 };
-
-export function DeviceItem({ device }: Props) {
-  const [isHover, setIsHover] = useState(false);
-  const icon = DEVICE_ICONS[device.type] || '💻';
-
-  return (
-    <>
-      <div
-        style={{ ...styles.container, ...(isHover && styles.containerHover) }}
-        onMouseEnter={() => setIsHover(true)}
-        onMouseLeave={() => setIsHover(false)}
-      >
-        <div style={styles.icon}>{icon}</div>
-        <div style={styles.info}>
-          <p style={styles.name}>{device.alias}</p>
-          <p style={styles.ip}>{device.ip}</p>
-        </div>
-        <div style={styles.status}>
-          <div style={styles.statusDot} />
-        </div>
-      </div>
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.7; }
-        }
-      `}</style>
-    </>
-  );
-}
