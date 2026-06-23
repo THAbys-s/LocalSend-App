@@ -132,7 +132,14 @@ export class WsTransferService {
   ): void {
     const { deviceId, alias, file } = message;
 
-    if (!deviceId || !alias || !file || !file.name || !file.size || !file.mimeType) {
+      if (
+        !deviceId ||
+        !alias ||
+        !file ||
+        typeof file.name !== 'string' ||
+        typeof file.size !== 'number' ||
+        typeof file.mimeType !== 'string'
+  ) {
       console.error('[WS] Mensaje de transfer-request inválido:', message);
       ws.send(JSON.stringify({ type: 'error', message: 'Formato inválido' }));
       ws.close(1002, 'Invalid request format');

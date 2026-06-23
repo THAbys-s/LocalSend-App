@@ -25,7 +25,6 @@ function generateId(): string {
   return `mobile-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
 }
 
-// In-memory cache (survives within session)
 let _id: string | null    = null;
 let _alias: string | null = null;
 

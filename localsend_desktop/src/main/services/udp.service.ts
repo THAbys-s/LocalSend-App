@@ -5,7 +5,8 @@ import { configStore } from '../store/config.store';
 import {
   UDP_PORT,
   BEACON_INTERVAL_MS,
-  DEVICE_TIMEOUT_MS
+  DEVICE_TIMEOUT_MS,
+  BROADCAST_ADDR,
 } from '../../shared/constants';
 
 function getLocalIP(): string {
