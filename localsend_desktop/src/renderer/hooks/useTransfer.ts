@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Transfer } from '../../shared/types';
+import type { Transfer } from '../../shared';
 
 interface UseTransferResult {
   transfer:       Transfer | null;

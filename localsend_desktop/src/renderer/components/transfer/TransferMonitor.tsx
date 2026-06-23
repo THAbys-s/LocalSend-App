@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Transfer } from '../../../shared/types';
+import type { Transfer } from '../../../shared';
 import { formatBytes, formatSpeed, formatTime } from '../../utils/format';
 
 interface Props {

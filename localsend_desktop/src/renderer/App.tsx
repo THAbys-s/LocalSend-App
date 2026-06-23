@@ -7,7 +7,7 @@ import { NotificationCenter } from './components/ui/NotificationCenter';
 import { TransferConfirmDialog } from './components/transfer/TransferConfirmDialog';
 import { useDiscovery } from './hooks/useDiscovery';
 import { useTransfer } from './hooks/useTransfer';
-import type { TransferRequestData } from '../shared/types';
+import type { TransferRequestData } from '../shared';
 
 export default function App() {
   const { devices } = useDiscovery();

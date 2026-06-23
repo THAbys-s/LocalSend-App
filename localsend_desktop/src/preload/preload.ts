@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { DeviceInfo, TransferRequestData } from '../shared/types';
+import type { DeviceInfo, TransferRequestData } from '../shared';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   onDeviceFound: (cb: (device: DeviceInfo) => void) =>

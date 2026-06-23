@@ -1,4 +1,4 @@
-import type { DeviceInfo } from '../../../shared/types';
+import type { DeviceInfo } from '../../../shared';
 import { DeviceItem } from './DeviceItem';
 
 interface Props {

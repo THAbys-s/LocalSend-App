@@ -1,12 +1,12 @@
 import dgram from 'dgram';
 import os from 'os';
-import type { DeviceInfo, DeviceOS } from '../../shared/types';
+import type { DeviceInfo, DeviceOS } from '../../shared';
 import { configStore } from '../store/config.store';
-
-const UDP_PORT           = 53317;
-const BROADCAST_ADDR     = '255.255.255.255';
-const BEACON_INTERVAL_MS = 2000;
-const DEVICE_TIMEOUT_MS  = 6000; // si no vemos beacon en 6s lo consideramos perdido
+import {
+  UDP_PORT,
+  BEACON_INTERVAL_MS,
+  DEVICE_TIMEOUT_MS
+} from '../../shared/constants';
 
 function getLocalIP(): string {
   const interfaces = os.networkInterfaces();
@@ -34,6 +34,7 @@ export class UdpDiscoveryService {
   private beaconTimer: NodeJS.Timeout | null = null;
 
   private deviceTimeouts = new Map<string, NodeJS.Timeout>();
+  private devices = new Map<string, DeviceInfo>();
 
   onDeviceFound?: (device: DeviceInfo) => void;
   onDeviceLost?:  (deviceId: string)   => void;
@@ -66,12 +67,17 @@ export class UdpDiscoveryService {
         // Ignorar nuestros propios beacons por ID.
         if (device.id === this.myInfo.id) return;
 
-        device.ip = rinfo.address;
+        device.ip = rinfo.address;        
+        const isNewDevice = !this.devices.has(device.id);
 
-        console.log(`[UDP] Beacon de: ${device.alias} (${device.ip})`);
-        this.onDeviceFound?.(device);
+        this.devices.set(device.id, device);
+
+        if (isNewDevice) {
+          console.log(`[UDP] Beacon de: ${device.alias} (${device.ip})`);
+          this.onDeviceFound?.(device);
+        }
+
         this.resetDeviceTimeout(device);
-
       } catch {
         // Paquete malformado — ignorar silenciosamente
       }
@@ -104,6 +110,7 @@ export class UdpDiscoveryService {
     const timer = setTimeout(() => {
       console.log(`[UDP] Dispositivo perdido: ${device.alias} (${device.ip})`);
       this.onDeviceLost?.(device.id);
+      this.devices.delete(device.id);
       this.deviceTimeouts.delete(device.id);
     }, DEVICE_TIMEOUT_MS);
 
@@ -128,4 +135,9 @@ export class UdpDiscoveryService {
   getMyInfo(): DeviceInfo {
     return { ...this.myInfo };
   }
+  
+  getDevices(): DeviceInfo[] {
+  return Array.from(this.devices.values());
+  }
+
 }

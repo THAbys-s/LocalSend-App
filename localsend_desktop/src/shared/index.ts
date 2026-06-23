@@ -31,6 +31,15 @@ export interface FileMetadata {
   type: string;
 }
 
+export interface Transfer {
+  fileName:   string;
+  progress:   number;
+  bytesSent:  number;
+  totalBytes: number;
+  speed:      number;
+  status:     TransferStatus;
+}
+
 export interface TransferRequest {
   id: string;
   files: FileMetadata[];
@@ -54,12 +63,3 @@ export interface TransferRequestData {
 }
 
 export type TransferStatus = 'connecting' | 'transferring' | 'complete' | 'error';
-
-export interface Transfer {
-  fileName:   string;
-  progress:   number;
-  bytesSent:  number;
-  totalBytes: number;
-  speed:      number;
-  status:     TransferStatus;
-}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { DeviceInfo } from '../../../shared/types';
+import type { DeviceInfo } from '../../../shared';
 
 interface Props {
   device: DeviceInfo;
