@@ -1,11 +1,11 @@
 import UdpSocket from 'react-native-udp';
 import { getDeviceAlias, getDeviceId } from '../utils/deviceInfo';
 
-const PORT            = 53317;
-const BROADCAST_ADDR  = '255.255.255.255';
-const MULTICAST_ADDR  = '239.255.77.77';
-const BEACON_INTERVAL = 2000;   // Tiempo de espera entre cada emisión de beacon.
-const DEVICE_TTL      = 8000;   // Tiempo de espera antes de descartar un dispositivo.
+const PORT = 53317;
+const BROADCAST_ADDR = '255.255.255.255';
+const MULTICAST_ADDR = '239.255.77.77';
+const BEACON_INTERVAL = 2000;
+const DEVICE_TTL = 8000;
 
 export interface DiscoveredDevice {
   id: string;
@@ -18,32 +18,50 @@ export interface DiscoveredDevice {
 
 type Listener = (devices: DiscoveredDevice[]) => void;
 
-class DiscoveryService {
+export class DiscoveryService {
   private socket: ReturnType<typeof UdpSocket.createSocket> | null = null;
+
   private beaconTimer: ReturnType<typeof setInterval> | null = null;
-  private pruneTimer:  ReturnType<typeof setInterval> | null = null;
-  private devices    = new Map<string, DiscoveredDevice>();
-  private listeners  = new Set<Listener>();
-  private running    = false;
+  private pruneTimer: ReturnType<typeof setInterval> | null = null;
+
+  private devices = new Map<string, DiscoveredDevice>();
+  private listeners = new Set<Listener>();
+
+  private running = false;
+
+  // cache device identity (IMPORTANT: no async spam per beacon)
+  private deviceIdPromise = getDeviceId();
+  private aliasPromise = getDeviceAlias();
 
   async start(): Promise<void> {
     if (this.running) return;
-    this.running = true;
+
     await this._openSocket();
+    this.running = true;
+
     this._startBeaconLoop();
     this._startPruneLoop();
   }
 
   stop(): void {
     if (!this.running) return;
+
     this.running = false;
+
     clearInterval(this.beaconTimer!);
     clearInterval(this.pruneTimer!);
+
     this.beaconTimer = null;
-    this.pruneTimer  = null;
-    try { this.socket?.close(); } catch (_) {}
+    this.pruneTimer = null;
+
+    try {
+      this.socket?.close();
+    } catch {}
+
     this.socket = null;
+
     this.devices.clear();
+    this.listeners.clear();
   }
 
   addListener(fn: Listener): () => void {
@@ -52,12 +70,14 @@ class DiscoveryService {
   }
 
   getDevices(): DiscoveredDevice[] {
-    return [...this.devices.values()];
+    return Array.from(this.devices.values());
   }
 
   async ping(): Promise<void> {
     await this._sendBeacon();
   }
+
+  // ---------------- SOCKET ----------------
 
   private _openSocket(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -68,17 +88,28 @@ class DiscoveryService {
       sock.bind(PORT, () => {
         sock.removeListener('error', reject);
 
-        try { sock.setBroadcast(true); } catch (_) {}
-        try { sock.addMembership(MULTICAST_ADDR); } catch (_) {}
+        try {
+          sock.setBroadcast(true);
+          sock.addMembership(MULTICAST_ADDR);
+        } catch {}
 
-        sock.on('message', (msg: Buffer, rinfo: { address: string; port: number }) => {
+        sock.on('message', (msg: Buffer, rinfo) => {
           this._onMessage(msg, rinfo);
         });
 
         sock.on('error', (err: Error) => {
           console.warn('[Discovery] socket error:', err.message);
+
           if (this.running) {
-            setTimeout(() => this._openSocket().catch(console.error), 3000);
+            setTimeout(async () => {
+              try {
+                this.socket?.close();
+              } catch {}
+
+              this.socket = null;
+
+              this._openSocket().catch(console.error);
+            }, 3000);
           }
         });
 
@@ -88,8 +119,10 @@ class DiscoveryService {
     });
   }
 
+  // ---------------- BEACON ----------------
+
   private _startBeaconLoop(): void {
-    this._sendBeacon(); // immediate
+    this._sendBeacon();
     this.beaconTimer = setInterval(() => this._sendBeacon(), BEACON_INTERVAL);
   }
 
@@ -98,12 +131,12 @@ class DiscoveryService {
 
     const payload = Buffer.from(
       JSON.stringify({
-        type:       'beacon',
-        deviceId:   await getDeviceId(),
-        alias:      await getDeviceAlias(),
+        type: 'beacon',
+        deviceId: await this.deviceIdPromise,
+        alias: await this.aliasPromise,
         deviceType: 'mobile',
-        port:       PORT,
-        version:    '1.0',
+        port: PORT,
+        version: '1.0',
       }),
       'utf8'
     );
@@ -117,43 +150,54 @@ class DiscoveryService {
     await send(MULTICAST_ADDR);
   }
 
+  // ---------------- RECEIVE ----------------
+
   private _onMessage(msg: Buffer, rinfo: { address: string; port: number }): void {
     try {
       const data = JSON.parse(msg.toString('utf8'));
+
       if (data.type !== 'beacon') return;
-      if (data.deviceType === 'mobile') return; // ignore other phones
+      if (data.deviceType === 'mobile') return;
+
+      const now = Date.now();
+
+      const existing = this.devices.get(data.deviceId);
 
       const device: DiscoveredDevice = {
-        id:         data.deviceId ?? rinfo.address,
-        alias:      data.alias    ?? `Desktop (${rinfo.address})`,
-        ip:         rinfo.address,
-        port:       data.port     ?? PORT,
-        lastSeen:   Date.now(),
+        id: data.deviceId ?? rinfo.address,
+        alias: data.alias ?? `Desktop (${rinfo.address})`,
+        ip: rinfo.address,
+        port: data.port ?? PORT,
+        lastSeen: now,
         deviceType: data.deviceType ?? 'desktop',
       };
 
-      const isNew = !this.devices.has(device.id);
       this.devices.set(device.id, device);
-      if (isNew) this._notify();
-      else {
-        this.devices.get(device.id)!.lastSeen = device.lastSeen;
-      }
-    } catch (_) {}
+
+      // ALWAYS notify (fixes frozen UI + stale radar)
+      this._notify();
+    } catch {}
   }
+
+  // ---------------- PRUNE ----------------
 
   private _startPruneLoop(): void {
     this.pruneTimer = setInterval(() => {
-      const now  = Date.now();
+      const now = Date.now();
       let changed = false;
+
       for (const [id, d] of this.devices) {
         if (now - d.lastSeen > DEVICE_TTL) {
           this.devices.delete(id);
           changed = true;
         }
       }
+
       if (changed) this._notify();
     }, DEVICE_TTL / 2);
   }
+
+  // ---------------- LISTENERS ----------------
 
   private _notify(): void {
     const list = this.getDevices();

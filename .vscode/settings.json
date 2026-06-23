@@ -1,0 +1,6 @@
+{
+    "copyCatBundler.additionalIgnorePatterns": [
+        "localsend_mobile/"
+    ],
+    "java.configuration.updateBuildConfiguration": "interactive"
+}

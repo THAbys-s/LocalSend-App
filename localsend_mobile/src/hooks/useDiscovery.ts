@@ -3,28 +3,43 @@ import { AppState } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { discoveryService, DiscoveredDevice } from '../services/DiscoveryService';
 
-export type ScanStatus = 'idle' | 'checking' | 'scanning' | 'no_wifi' | 'error';
+export type ScanStatus =
+  | 'idle'
+  | 'checking'
+  | 'scanning'
+  | 'no_wifi'
+  | 'error';
 
 export interface UseDiscoveryResult {
-  devices:    DiscoveredDevice[];
-  status:     ScanStatus;
-  error:      string | null;
-  start:      () => Promise<void>;
-  stop:       () => void;
-  ping:       () => void;
+  devices: DiscoveredDevice[];
+  status: ScanStatus;
+  error: string | null;
+  start: () => Promise<void>;
+  stop: () => void;
+  ping: () => void;
   isScanning: boolean;
 }
 
 export function useDiscovery(): UseDiscoveryResult {
   const [devices, setDevices] = useState<DiscoveredDevice[]>([]);
-  const [status,  setStatus ] = useState<ScanStatus>('idle');
-  const [error,   setError  ] = useState<string | null>(null);
+  const [status, setStatus] = useState<ScanStatus>('idle');
+  const [error, setError] = useState<string | null>(null);
+
   const running = useRef(false);
+  const unsubscribeRef = useRef<null | (() => void)>(null);
 
   const stop = useCallback(() => {
     if (!running.current) return;
+
     running.current = false;
+
     discoveryService.stop();
+
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+
     setStatus('idle');
     setDevices([]);
   }, []);
@@ -34,7 +49,8 @@ export function useDiscovery(): UseDiscoveryResult {
     setStatus('checking');
 
     const net = await NetInfo.fetch();
-    if (net.type !== 'wifi' || !net.isConnected) {
+
+    if (!net.isConnected || net.type !== 'wifi') {
       setStatus('no_wifi');
       return;
     }
@@ -48,15 +64,17 @@ export function useDiscovery(): UseDiscoveryResult {
       running.current = true;
       setStatus('scanning');
 
-      const unsub = discoveryService.addListener(updated => setDevices([...updated]));
+      const unsub = discoveryService.addListener(updated => {
+        setDevices(updated);
+      });
+
+      unsubscribeRef.current = unsub;
 
       await discoveryService.start();
-
-      return () => unsub();
     } catch (err: any) {
       running.current = false;
       setStatus('error');
-      setError(err.message ?? 'Error de red');
+      setError(err?.message ?? 'Error de red');
     }
   }, []);
 
@@ -64,27 +82,49 @@ export function useDiscovery(): UseDiscoveryResult {
     discoveryService.ping().catch(console.error);
   }, []);
 
-  // Resume on app foreground
+  // resume on foreground
   useEffect(() => {
-    const sub = AppState.addEventListener('change', next => {
-      if (next === 'active' && running.current) {
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active' && running.current) {
         discoveryService.ping().catch(console.error);
       }
     });
+
     return () => sub.remove();
   }, []);
 
+  // stop on wifi loss
   useEffect(() => {
     const unsub = NetInfo.addEventListener(state => {
-      if (state.type !== 'wifi' && running.current) {
+      if (!state.isConnected || state.type !== 'wifi') {
         stop();
         setStatus('no_wifi');
       }
     });
+
     return unsub;
   }, [stop]);
 
-  useEffect(() => () => { discoveryService.stop(); running.current = false; }, []);
+  // cleanup on unmount
+  useEffect(() => {
+    return () => {
+      discoveryService.stop();
+      running.current = false;
 
-  return { devices, status, error, start, stop, ping, isScanning: status === 'scanning' };
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+    };
+  }, []);
+
+  return {
+    devices,
+    status,
+    error,
+    start,
+    stop,
+    ping,
+    isScanning: status === 'scanning',
+  };
 }
