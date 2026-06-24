@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -47,7 +47,7 @@ export function HomeScreen() {
   }, []);
 
   // ── File pickers ────────────────────────────────────────────────────────────
-
+ww
   const pickDocument = useCallback(async () => {
     const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
     if (result.canceled) return;
@@ -63,19 +63,30 @@ export function HomeScreen() {
   }, []);
 
   const pickImage = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permiso requerido',
+        'Necesitamos acceso a tu galería para enviar imágenes.',
+      );
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaType.All,
-      quality:    1,
+      quality: 1,
     });
+
     if (result.canceled) return;
 
     const asset = result.assets[0];
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedFile({
-      uri:          asset.uri,
-      name:         asset.fileName ?? 'photo.jpg',
-      size:         asset.fileSize ?? 0,
-      type:         asset.type === 'video' ? 'video/mp4' : 'image/jpeg',
+      uri: asset.uri,
+      name: asset.fileName ?? 'photo.jpg',
+      size: asset.fileSize ?? 0,
+      type: asset.type === 'video' ? 'video/mp4' : 'image/jpeg',
       thumbnailUri: asset.uri,
     });
   }, []);

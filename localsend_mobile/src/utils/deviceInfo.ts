@@ -1,4 +1,3 @@
-// src/utils/deviceInfo.ts
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,7 +33,6 @@ export async function getDeviceId(): Promise<string> {
     const stored = await AsyncStorage.getItem('ls_device_id');
     if (stored) { _id = stored; return _id; }
   } catch (_) {}
-  // Use Expo installationId if available
   const expoId = Constants.easConfig?.projectId ?? null;
   _id = expoId ? `expo-${expoId.slice(0,8)}` : generateId();
   try { await AsyncStorage.setItem('ls_device_id', _id); } catch (_) {}

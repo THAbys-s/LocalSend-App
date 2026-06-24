@@ -1,5 +1,3 @@
-// src/theme/index.ts
-
 export const Colors = {
   primary: '#00C896',
   primaryDark: '#00A07A',
