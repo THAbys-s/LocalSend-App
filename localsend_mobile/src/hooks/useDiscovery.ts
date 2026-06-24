@@ -16,12 +16,19 @@ export interface UseDiscoveryResult {
   stop: () => void;
   ping: () => void;
   isScanning: boolean;
+  renameDevice: (deviceId: string, name: string) => void;
+  editingDeviceId: string | null;
+  setEditingDeviceId: (id: string | null) => void;
+  tempName: string;
+  setTempName: (name: string) => void;
 }
 
 export function useDiscovery(): UseDiscoveryResult {
   const [devices, setDevices] = useState<DiscoveredDevice[]>([]);
   const [status, setStatus] = useState<ScanStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
+  const [tempName, setTempName] = useState("");
 
   const running = useRef(false);
   const unsubscribeRef = useRef<null | (() => void)>(null);
@@ -30,7 +37,6 @@ export function useDiscovery(): UseDiscoveryResult {
     if (!running.current) return;
 
     running.current = false;
-
     discoveryService.stop();
 
     if (unsubscribeRef.current) {
@@ -53,24 +59,21 @@ export function useDiscovery(): UseDiscoveryResult {
       return;
     }
 
-    try {
-      if (running.current) {
-        discoveryService.ping().catch(console.error);
-        return;
-      }
+    if (running.current) {
+      discoveryService.ping().catch(console.error);
+      return;
+    }
 
+    try {
       running.current = true;
       setStatus("scanning");
 
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-        unsubscribeRef.current = null;
-      }
-
-      unsubscribeRef.current = discoveryService.addListener((updated) => {
+      const unsub = discoveryService.addListener((updated) => {
         console.log("DEVICES RAW:", updated);
         setDevices([...updated]);
       });
+
+      unsubscribeRef.current = unsub;
 
       await discoveryService.start();
     } catch (err: any) {
@@ -84,6 +87,12 @@ export function useDiscovery(): UseDiscoveryResult {
     discoveryService.ping().catch(console.error);
   }, []);
 
+  const renameDevice = useCallback((deviceId: string, name: string) => {
+    setDevices((prev) =>
+      prev.map((d) => (d.id === deviceId ? { ...d, alias: name } : d)),
+    );
+  }, []);
+
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active" && running.current) {
@@ -94,7 +103,6 @@ export function useDiscovery(): UseDiscoveryResult {
     return () => sub.remove();
   }, []);
 
-  // detenerse si hubo perdida de wifi
   useEffect(() => {
     const unsub = NetInfo.addEventListener((state) => {
       if (!state.isConnected || state.type !== "wifi") {
@@ -106,7 +114,6 @@ export function useDiscovery(): UseDiscoveryResult {
     return unsub;
   }, [stop]);
 
-  // limpiar al desmontar
   useEffect(() => {
     return () => {
       discoveryService.stop();
@@ -127,5 +134,10 @@ export function useDiscovery(): UseDiscoveryResult {
     stop,
     ping,
     isScanning: status === "scanning",
+    renameDevice,
+    editingDeviceId,
+    setEditingDeviceId,
+    tempName,
+    setTempName,
   };
 }
