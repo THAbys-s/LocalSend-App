@@ -1,14 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { AppState } from 'react-native';
-import NetInfo from '@react-native-community/netinfo';
-import { discoveryService, DiscoveredDevice } from '../services/DiscoveryService';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { AppState } from "react-native";
+import NetInfo from "@react-native-community/netinfo";
+import {
+  discoveryService,
+  DiscoveredDevice,
+} from "../services/DiscoveryService";
 
-export type ScanStatus =
-  | 'idle'
-  | 'checking'
-  | 'scanning'
-  | 'no_wifi'
-  | 'error';
+export type ScanStatus = "idle" | "checking" | "scanning" | "no_wifi" | "error";
 
 export interface UseDiscoveryResult {
   devices: DiscoveredDevice[];
@@ -22,7 +20,7 @@ export interface UseDiscoveryResult {
 
 export function useDiscovery(): UseDiscoveryResult {
   const [devices, setDevices] = useState<DiscoveredDevice[]>([]);
-  const [status, setStatus] = useState<ScanStatus>('idle');
+  const [status, setStatus] = useState<ScanStatus>("idle");
   const [error, setError] = useState<string | null>(null);
 
   const running = useRef(false);
@@ -40,41 +38,45 @@ export function useDiscovery(): UseDiscoveryResult {
       unsubscribeRef.current = null;
     }
 
-    setStatus('idle');
+    setStatus("idle");
     setDevices([]);
   }, []);
 
   const start = useCallback(async () => {
     setError(null);
-    setStatus('checking');
+    setStatus("checking");
 
     const net = await NetInfo.fetch();
 
-    if (!net.isConnected || net.type !== 'wifi') {
-      setStatus('no_wifi');
-      return;
-    }
-
-    if (running.current) {
-      discoveryService.ping().catch(console.error);
+    if (!net.isConnected || net.type !== "wifi") {
+      setStatus("no_wifi");
       return;
     }
 
     try {
+      if (running.current) {
+        discoveryService.ping().catch(console.error);
+        return;
+      }
+
       running.current = true;
-      setStatus('scanning');
+      setStatus("scanning");
 
-      const unsub = discoveryService.addListener(updated => {
-        setDevices(updated);
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+
+      unsubscribeRef.current = discoveryService.addListener((updated) => {
+        console.log("DEVICES RAW:", updated);
+        setDevices([...updated]);
       });
-
-      unsubscribeRef.current = unsub;
 
       await discoveryService.start();
     } catch (err: any) {
       running.current = false;
-      setStatus('error');
-      setError(err?.message ?? 'Error de red');
+      setStatus("error");
+      setError(err?.message ?? "Error de red");
     }
   }, []);
 
@@ -82,10 +84,9 @@ export function useDiscovery(): UseDiscoveryResult {
     discoveryService.ping().catch(console.error);
   }, []);
 
-  // resume on foreground
   useEffect(() => {
-    const sub = AppState.addEventListener('change', state => {
-      if (state === 'active' && running.current) {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active" && running.current) {
         discoveryService.ping().catch(console.error);
       }
     });
@@ -93,19 +94,19 @@ export function useDiscovery(): UseDiscoveryResult {
     return () => sub.remove();
   }, []);
 
-  // stop on wifi loss
+  // detenerse si hubo perdida de wifi
   useEffect(() => {
-    const unsub = NetInfo.addEventListener(state => {
-      if (!state.isConnected || state.type !== 'wifi') {
+    const unsub = NetInfo.addEventListener((state) => {
+      if (!state.isConnected || state.type !== "wifi") {
         stop();
-        setStatus('no_wifi');
+        setStatus("no_wifi");
       }
     });
 
     return unsub;
   }, [stop]);
 
-  // cleanup on unmount
+  // limpiar al desmontar
   useEffect(() => {
     return () => {
       discoveryService.stop();
@@ -125,6 +126,6 @@ export function useDiscovery(): UseDiscoveryResult {
     start,
     stop,
     ping,
-    isScanning: status === 'scanning',
+    isScanning: status === "scanning",
   };
 }
