@@ -67,9 +67,8 @@ export function HomeScreen() {
       );
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.All,
+      mediaTypes: ["images", "videos"],
       quality: 1,
     });
 
