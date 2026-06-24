@@ -1,4 +1,4 @@
-package com.localsend.mobile
+package com.localsendmobile
 
 import android.os.Build
 import android.os.Bundle

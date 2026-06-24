@@ -5,23 +5,18 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-      "splash": {
-        "image": "./assets/splash.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#ffffff"
-      },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.localsend.mobile",
+      "bundleIdentifier": "com.localsendmobile",
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "LocalSend necesita acceso a la red local para descubrir computadoras cercanas y enviarles archivos sin usar Internet.",
-        "NSBonjourServices": [
-          "_localsend._tcp",
-          "_localsend._udp"
-        ],
+        "NSBonjourServices": ["_localsend._tcp", "_localsend._udp"],
         "NSPhotoLibraryUsageDescription": "LocalSend necesita acceso a tu galería para seleccionar fotos y videos.",
         "NSPhotoLibraryAddUsageDescription": "LocalSend puede guardar archivos recibidos en tu galería.",
         "NSAppTransportSecurity": {
@@ -29,12 +24,12 @@
         }
       }
     },
-      "android": {
+    "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.localsend.mobile",
+      "package": "com.localsendmobile",
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",

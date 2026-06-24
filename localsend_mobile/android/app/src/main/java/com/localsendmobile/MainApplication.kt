@@ -1,4 +1,4 @@
-package com.localsend.mobile
+package com.localsendmobile
 
 import android.app.Application
 import android.content.res.Configuration
