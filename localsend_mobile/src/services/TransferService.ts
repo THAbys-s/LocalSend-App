@@ -172,7 +172,7 @@ class TransferService {
 
       const now     = Date.now();
       const elapsed = now - lastTime;
-      const speed   = elapsed >= 500 ? ((bytesSent - lastBytes) / elapsed) * 1000 : this.current!.speed;
+      const speed   = elapsed >= 500 ? ((bytesSent - lastBytes) / elapsed) * 1000 : this.current?.speed ?? 0;
       if (elapsed >= 500) { lastTime = now; lastBytes = bytesSent; }
 
       this._emit({

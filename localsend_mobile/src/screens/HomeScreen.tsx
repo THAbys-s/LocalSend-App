@@ -20,8 +20,7 @@ import { DeviceCard } from '../components/DeviceCard';
 import { TransferProgressSheet } from '../components/TransferProgressSheet';
 import { DiscoveredDevice } from '../services/DiscoveryService';
 import { FileToSend } from '../services/TransferService';
-
-// ─── Constants ───────────────────────────────────────────────────────────────
+import { useForegroundService } from '../hooks/useForegroundService';
 
 const SCAN_STATUS_LABEL: Record<string, string> = {
   idle:     'Toca para escanear',
@@ -30,8 +29,6 @@ const SCAN_STATUS_LABEL: Record<string, string> = {
   no_wifi:  'Conectate a Wi-Fi primero',
   error:    'Error de red',
 };
-
-// ─── Component ───────────────────────────────────────────────────────────────
 
 export function HomeScreen() {
   const { colors, t, s, r } = useTheme();
@@ -46,8 +43,6 @@ export function HomeScreen() {
     return () => stop();
   }, []);
 
-  // ── File pickers ────────────────────────────────────────────────────────────
-ww
   const pickDocument = useCallback(async () => {
     const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
     if (result.canceled) return;
@@ -91,8 +86,6 @@ ww
     });
   }, []);
 
-  // ── Send ────────────────────────────────────────────────────────────────────
-
   const handleDevicePress = useCallback((device: DiscoveredDevice) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedDevice(device);
@@ -115,13 +108,14 @@ ww
     }
   }, [progress, reset]);
 
-  // ── Derived ─────────────────────────────────────────────────────────────────
-
   const canSend    = !!selectedFile && !!selectedDevice && !isSending;
   const isScanning = status === 'scanning';
   const isNoWifi   = status === 'no_wifi';
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  useForegroundService(
+    isSending,
+    progress ? `Enviando ${progress.fileName}...` : 'Transferencia en curso...'
+  );
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
@@ -260,8 +254,6 @@ ww
     </SafeAreaView>
   );
 }
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root:   { flex: 1 },
