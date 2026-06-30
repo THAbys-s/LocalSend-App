@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface Notification {
   id: string;
   message: string;
