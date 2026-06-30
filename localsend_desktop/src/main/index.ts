@@ -41,23 +41,10 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
-  createTcpService(TCP_PORT);
+  createTcpService(TCP_PORT, wsService);
   mainWindow = createWindow();
-
   registerIpcHandlers(udpService, wsService, mainWindow);
-
-  udpService.onDeviceFound = (device) => {
-    console.log('[Main] Dispositivo encontrado:', device.alias, device.ip);
-  };
-
-  udpService.onDeviceLost = (deviceId) => {
-    console.log('[Main] Dispositivo perdido:', deviceId);
-  };
-
-  udpService.start();
-  wsService.start();
 });
-
 app.on('window-all-closed', () => {
   udpService.stop();
   wsService.stop();

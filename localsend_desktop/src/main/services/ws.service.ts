@@ -13,6 +13,7 @@ type TransferRequestHandler = (data: TransferRequestData) => void;
 export class WsTransferService {
   private server: WebSocketServer | null = null;
   private pendingTransfers = new Map<string, PendingTransfer>();
+  private acceptedTransfers = new Set<string>(); // ← agregado
   private listeners = new Set<TransferRequestHandler>();
   private port: number;
 
@@ -23,37 +24,37 @@ export class WsTransferService {
   start(): void {
     this.server = new WebSocketServer({ port: this.port });
 
-    this.server.on('connection', (ws) => {
-      console.log('[WS] Nuevo cliente conectado');
+    this.server.on("connection", (ws) => {
+      console.log("[WS] Nuevo cliente conectado");
 
       const timeout = setTimeout(() => {
-        console.warn('[WS] Cliente no envió mensaje en 10s, desconectando');
-        ws.close(1000, 'Timeout');
+        console.warn("[WS] Cliente no envió mensaje en 10s, desconectando");
+        ws.close(1000, "Timeout");
       }, 10000);
 
-      ws.on('message', (data) => {
+      ws.on("message", (data) => {
         try {
           clearTimeout(timeout);
           const message = JSON.parse(data.toString());
 
-          if (message.type === 'transfer-request') {
+          if (message.type === "transfer-request") {
             this._handleTransferRequest(message, ws);
           }
         } catch (err) {
-          console.error('[WS] Error parsing message:', err);
-          ws.close(1002, 'Invalid message');
+          console.error("[WS] Error parsing message:", err);
+          ws.close(1002, "Invalid message");
         }
       });
 
-      ws.on('error', (err) => {
-        console.error('[WS] Error en socket:', err.message);
+      ws.on("error", (err) => {
+        console.error("[WS] Error en socket:", err.message);
         clearTimeout(timeout);
       });
 
-      ws.on('close', () => {
+      ws.on("close", () => {
         clearTimeout(timeout);
         const entry = Array.from(this.pendingTransfers.entries()).find(
-          ([_, transfer]) => transfer.ws === ws
+          ([_, transfer]) => transfer.ws === ws,
         );
         if (entry) {
           clearTimeout(entry[1].timeout);
@@ -63,8 +64,8 @@ export class WsTransferService {
       });
     });
 
-    this.server.on('error', (err) => {
-      console.error('[WS] Server error:', err.message);
+    this.server.on("error", (err) => {
+      console.error("[WS] Server error:", err.message);
     });
 
     console.log(`[WS] Servidor escuchando en puerto ${this.port}`);
@@ -73,21 +74,21 @@ export class WsTransferService {
   stop(): void {
     for (const [_, transfer] of this.pendingTransfers) {
       clearTimeout(transfer.timeout);
-      transfer.ws.close(1000, 'Server shutting down');
+      transfer.ws.close(1000, "Server shutting down");
     }
     this.pendingTransfers.clear();
 
     this.server?.close(() => {
-      console.log('[WS] Servidor detenido');
+      console.log("[WS] Servidor detenido");
     });
     this.server = null;
   }
 
-  on(event: 'transfer-request', handler: TransferRequestHandler): void {
+  on(event: "transfer-request", handler: TransferRequestHandler): void {
     this.listeners.add(handler);
   }
 
-  off(event: 'transfer-request', handler: TransferRequestHandler): void {
+  off(event: "transfer-request", handler: TransferRequestHandler): void {
     this.listeners.delete(handler);
   }
 
@@ -99,16 +100,23 @@ export class WsTransferService {
     }
 
     try {
-      transfer.ws.send(JSON.stringify({ type: 'accept' }));
-      console.log(`[WS] Transferencia aceptada: ${transfer.alias} (${deviceId.slice(0, 8)}...)`);
+      transfer.ws.send(JSON.stringify({ type: "accept" }));
+      console.log(
+        `[WS] Transferencia aceptada: ${transfer.alias} (${deviceId.slice(0, 8)}...)`,
+      );
       clearTimeout(transfer.timeout);
-      // Keep connection alive for potential retry/confirmation
+
+      this.acceptedTransfers.add(deviceId);
+      // Limpieza de seguridad si el archivo no llega en 1 minuto tras aceptar, se invalida
+      setTimeout(() => {
+        this.acceptedTransfers.delete(deviceId);
+      }, 60000);
     } catch (err) {
       console.error(`[WS] Error enviando accept a ${deviceId}:`, err);
     }
   }
 
-  reject(deviceId: string, reason = 'Rechazado por el usuario'): void {
+  reject(deviceId: string, reason = "Rechazado por el usuario"): void {
     const transfer = this.pendingTransfers.get(deviceId);
     if (!transfer) {
       console.warn(`[WS] No hay transferencia pendiente de: ${deviceId}`);
@@ -116,33 +124,40 @@ export class WsTransferService {
     }
 
     try {
-      transfer.ws.send(JSON.stringify({ type: 'reject', message: reason }));
+      transfer.ws.send(JSON.stringify({ type: "reject", message: reason }));
       console.log(`[WS] Transferencia rechazada: ${transfer.alias}`);
       clearTimeout(transfer.timeout);
       this.pendingTransfers.delete(deviceId);
-      transfer.ws.close(1000, 'Rejected');
+      this.acceptedTransfers.delete(deviceId);
+      transfer.ws.close(1000, "Rejected");
     } catch (err) {
       console.error(`[WS] Error enviando reject a ${deviceId}:`, err);
     }
   }
+  isAccepted(deviceId: string): boolean {
+    return this.acceptedTransfers.has(deviceId);
+  }
 
-  private _handleTransferRequest(
-    message: any,
-    ws: WebSocket
-  ): void {
+  // Una vez recibido el archivo se vuelve a llamar para que no quede reusable.
+  consumeAcceptance(deviceId: string): void {
+    this.acceptedTransfers.delete(deviceId);
+    this.pendingTransfers.delete(deviceId);
+  }
+
+  private _handleTransferRequest(message: any, ws: WebSocket): void {
     const { deviceId, alias, file } = message;
 
-      if (
-        !deviceId ||
-        !alias ||
-        !file ||
-        typeof file.name !== 'string' ||
-        typeof file.size !== 'number' ||
-        typeof file.mimeType !== 'string'
-  ) {
-      console.error('[WS] Mensaje de transfer-request inválido:', message);
-      ws.send(JSON.stringify({ type: 'error', message: 'Formato inválido' }));
-      ws.close(1002, 'Invalid request format');
+    if (
+      !deviceId ||
+      !alias ||
+      !file ||
+      typeof file.name !== "string" ||
+      typeof file.size !== "number" ||
+      typeof file.mimeType !== "string"
+    ) {
+      console.error("[WS] Mensaje de transfer-request inválido:", message);
+      ws.send(JSON.stringify({ type: "error", message: "Formato inválido" }));
+      ws.close(1002, "Invalid request format");
       return;
     }
 
@@ -157,16 +172,16 @@ export class WsTransferService {
     };
 
     console.log(
-      `[WS] Transfer request de: ${alias} (${deviceId.slice(0, 8)}...) | Archivo: ${file.name} (${file.size} bytes)`
+      `[WS] Transfer request de: ${alias} (${deviceId.slice(0, 8)}...) | Archivo: ${file.name} (${file.size} bytes)`,
     );
 
     // Store with 30s timeout for user to accept/reject
     const timeout = setTimeout(() => {
       if (this.pendingTransfers.has(deviceId)) {
         console.warn(`[WS] Timeout esperando respuesta para: ${alias}`);
-        ws.send(JSON.stringify({ type: 'error', message: 'Timeout' }));
+        ws.send(JSON.stringify({ type: "error", message: "Timeout" }));
         this.pendingTransfers.delete(deviceId);
-        ws.close(1000, 'Timeout');
+        ws.close(1000, "Timeout");
       }
     }, 30000);
 

@@ -1,21 +1,21 @@
-import { ipcMain, BrowserWindow } from 'electron';
-import fs from 'fs';
-import path from 'path';
-import { Readable } from 'stream';
+import { ipcMain, BrowserWindow } from "electron";
+import fs from "fs";
+import path from "path";
+import { Readable } from "stream";
 
-import { channels } from '../../shared/constants';
-import type { SendFilePayload } from '../../shared';
+import { channels } from "../../shared/constants";
+import type { SendFilePayload } from "../../shared";
 
-import { configStore } from '../store/config.store';
-import { UdpDiscoveryService } from '../services/udp.service';
-import { WsTransferService } from '../services/ws.service';
+import { configStore } from "../store/config.store";
+import { UdpDiscoveryService } from "../services/udp.service";
+import { WsTransferService } from "../services/ws.service";
 
 export function registerTransferHandlers(
   wsService: WsTransferService,
-  mainWindow: BrowserWindow
+  mainWindow: BrowserWindow,
 ) {
-  wsService.on('transfer-request', (data) => {
-    console.log('[IPC] Enviando transfer-request al renderer');
+  wsService.on("transfer-request", (data) => {
+    console.log("[IPC] Enviando transfer-request al renderer");
 
     mainWindow.webContents.send(channels.transferRequest, {
       deviceId: data.deviceId,
@@ -26,7 +26,10 @@ export function registerTransferHandlers(
 
   ipcMain.handle(
     channels.transferRespond,
-    (_event, payload: { deviceId: string; accept: boolean; reason?: string }) => {
+    (
+      _event,
+      payload: { deviceId: string; accept: boolean; reason?: string },
+    ) => {
       const { deviceId, accept, reason } = payload;
 
       if (accept) {
@@ -38,7 +41,7 @@ export function registerTransferHandlers(
       return {
         success: true,
       };
-    }
+    },
   );
 
   ipcMain.handle(
@@ -51,49 +54,50 @@ export function registerTransferHandlers(
 
         const stream = fs.createReadStream(filePath);
 
-        const response = await fetch(
-          `http://${targetIp}:53318/upload`,
-          {
-            method: 'POST',
-            headers: {
-              'x-file-name': encodeURIComponent(fileName),
-            },
-            body: stream as unknown as Readable,
-            duplex: 'half',
-          }
-        );
+        const response = await fetch(`http://${targetIp}:53318/upload`, {
+          method: "POST",
+          headers: {
+            "x-file-name": encodeURIComponent(fileName),
+          },
+          body: stream as unknown as Readable,
+          duplex: "half",
+        });
 
         if (!response.ok) {
-          throw new Error(
-            `El receptor respondió ${response.status}`
-          );
+          throw new Error(`El receptor respondió ${response.status}`);
         }
 
-        console.log(
-          `[IPC] Archivo enviado: ${fileName} -> ${targetIp}`
-        );
+        console.log(`[IPC] Archivo enviado: ${fileName} -> ${targetIp}`);
 
         return {
           success: true,
         };
       } catch (error) {
-        console.error('[IPC] Error enviando archivo:', error);
+        console.error("[IPC] Error enviando archivo:", error);
 
         return {
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Error desconocido',
+          error: error instanceof Error ? error.message : "Error desconocido",
         };
       }
-    }
+    },
   );
 }
 
 export function registerDiscoveryHandlers(
-  udpService: UdpDiscoveryService
+  udpService: UdpDiscoveryService,
+  mainWindow: BrowserWindow,
 ) {
+  udpService.onDeviceFound = (device) => {
+    console.log("[IPC] Dispositivo encontrado:", device.alias, device.ip);
+    mainWindow.webContents.send(channels.deviceFound, device);
+  };
+
+  udpService.onDeviceLost = (deviceId) => {
+    console.log("[IPC] Dispositivo perdido:", deviceId);
+    mainWindow.webContents.send(channels.deviceLost, deviceId);
+  };
+
   ipcMain.handle(channels.getDevices, () => {
     return udpService.getDevices();
   });
@@ -102,20 +106,12 @@ export function registerDiscoveryHandlers(
 export function registerIpcHandlers(
   udpService: UdpDiscoveryService,
   wsService: WsTransferService,
-  mainWindow: BrowserWindow
+  mainWindow: BrowserWindow,
 ) {
-  registerDiscoveryHandlers(udpService);
-
-  registerTransferHandlers(
-    wsService,
-    mainWindow
-  );
-
+  registerDiscoveryHandlers(udpService, mainWindow);
+  registerTransferHandlers(wsService, mainWindow);
   ipcMain.handle(channels.setConfig, (_event, config) => {
     configStore.set(config);
-
-    return {
-      success: true,
-    };
+    return { success: true };
   });
 }
