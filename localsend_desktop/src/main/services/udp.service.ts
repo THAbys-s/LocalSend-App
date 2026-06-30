@@ -1,32 +1,36 @@
-import dgram from 'dgram';
-import os from 'os';
-import type { DeviceInfo, DeviceOS } from '../../shared';
-import { configStore } from '../store/config.store';
+import dgram from "dgram";
+import os from "os";
+import type { DeviceInfo, DeviceOS, BeaconPayload } from "../../shared";
+import { configStore } from "../store/config.store";
 import {
   UDP_PORT,
   BEACON_INTERVAL_MS,
   DEVICE_TIMEOUT_MS,
   BROADCAST_ADDR,
-} from '../../shared/constants';
+} from "../../shared/constants";
 
 function getLocalIP(): string {
   const interfaces = os.networkInterfaces();
   for (const iface of Object.values(interfaces)) {
     for (const info of iface ?? []) {
-      if (info.family === 'IPv4' && !info.internal) {
+      if (info.family === "IPv4" && !info.internal) {
         return info.address;
       }
     }
   }
-  return '127.0.0.1';
+  return "127.0.0.1";
 }
 
 function detectOS(): DeviceOS {
   switch (process.platform) {
-    case 'win32':  return 'windows';
-    case 'darwin': return 'macos';
-    case 'linux':  return 'linux';
-    default:       return 'unknown';
+    case "win32":
+      return "windows";
+    case "darwin":
+      return "macos";
+    case "linux":
+      return "linux";
+    default:
+      return "unknown";
   }
 }
 
@@ -38,39 +42,47 @@ export class UdpDiscoveryService {
   private devices = new Map<string, DeviceInfo>();
 
   onDeviceFound?: (device: DeviceInfo) => void;
-  onDeviceLost?:  (deviceId: string)   => void;
+  onDeviceLost?: (deviceId: string) => void;
 
   private myInfo: DeviceInfo;
 
   constructor() {
     this.myInfo = {
-      id:         configStore.get('deviceId'),
-      alias:      configStore.get('deviceAlias'),
-      ip:         getLocalIP(),
-      port:       53318,
-      deviceType: 'desktop',
-      os:         detectOS(),
-      version:    '1.0',
+      id: configStore.get("deviceId"),
+      alias: configStore.get("deviceAlias"),
+      ip: getLocalIP(),
+      port: 53318,
+      deviceType: "desktop",
+      os: detectOS(),
+      version: "1.0",
     };
   }
 
   start(): void {
-    this.socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+    this.socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
 
-    this.socket.on('error', (err) => {
-      console.error('[UDP] Error en socket:', err.message);
+    this.socket.on("error", (err) => {
+      console.error("[UDP] Error en socket:", err.message);
     });
 
-    this.socket.on('message', (msg, rinfo) => {
+    this.socket.on("message", (msg, rinfo) => {
       try {
-        const device: DeviceInfo = JSON.parse(msg.toString());
+        const raw: Partial<BeaconPayload> = JSON.parse(msg.toString());
 
-        // Ignorar nuestros propios beacons por ID.
+        const device: DeviceInfo = {
+          id: raw.id ?? "",
+          alias: raw.alias ?? "Desconocido",
+          ip: rinfo.address,
+          port: raw.port ?? UDP_PORT,
+          deviceType: raw.deviceType ?? "unknown",
+          os: raw.os ?? "unknown",
+          version: raw.version ?? "1.0",
+        };
+
+        if (!device.id) return;
         if (device.id === this.myInfo.id) return;
 
-        device.ip = rinfo.address;        
         const isNewDevice = !this.devices.has(device.id);
-
         this.devices.set(device.id, device);
 
         if (isNewDevice) {
@@ -79,28 +91,35 @@ export class UdpDiscoveryService {
         }
 
         this.resetDeviceTimeout(device);
-      } catch {
-        // Paquete malformado — ignorar silenciosamente
-      }
+      } catch {}
     });
-
     this.socket.bind(UDP_PORT, () => {
       this.socket!.setBroadcast(true);
       console.log(`[UDP] Servidor escuchando en puerto ${UDP_PORT}`);
-      console.log(`[UDP] Este dispositivo: ${this.myInfo.alias} | ${this.myInfo.ip} | ID: ${this.myInfo.id.slice(0, 8)}...`);
+      console.log(
+        `[UDP] Este dispositivo: ${this.myInfo.alias} | ${this.myInfo.ip} | ID: ${this.myInfo.id.slice(0, 8)}...`,
+      );
       this.startBeacon();
     });
   }
 
   private startBeacon(): void {
     const send = () => {
-      const msg = Buffer.from(JSON.stringify(this.myInfo));
+      const beacon: BeaconPayload = {
+        type: "beacon",
+        id: this.myInfo.id,
+        alias: this.myInfo.alias,
+        deviceType: this.myInfo.deviceType,
+        os: this.myInfo.os,
+        port: this.myInfo.port,
+        version: this.myInfo.version,
+      };
+      const msg = Buffer.from(JSON.stringify(beacon));
       this.socket?.send(msg, 0, msg.length, UDP_PORT, BROADCAST_ADDR, (err) => {
-        if (err) console.error('[UDP] Error enviando beacon:', err.message);
+        if (err) console.error("[UDP] Error enviando beacon:", err.message);
       });
     };
-
-    send(); // envío inmediato al arrancar
+    send();
     this.beaconTimer = setInterval(send, BEACON_INTERVAL_MS);
   }
 
@@ -130,15 +149,14 @@ export class UdpDiscoveryService {
     this.socket?.close();
     this.socket = null;
 
-    console.log('[UDP] Servicio detenido');
+    console.log("[UDP] Servicio detenido");
   }
 
   getMyInfo(): DeviceInfo {
     return { ...this.myInfo };
   }
-  
-  getDevices(): DeviceInfo[] {
-  return Array.from(this.devices.values());
-  }
 
+  getDevices(): DeviceInfo[] {
+    return Array.from(this.devices.values());
+  }
 }

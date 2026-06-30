@@ -1,9 +1,10 @@
-import UdpSocket from 'react-native-udp';
-import { getDeviceAlias, getDeviceId } from '../utils/deviceInfo';
+import UdpSocket from "react-native-udp";
+import { getDeviceAlias, getDeviceId } from "../utils/deviceInfo";
+import { Buffer } from "buffer";
 
 const PORT = 53317;
-const BROADCAST_ADDR = '255.255.255.255';
-const MULTICAST_ADDR = '239.255.77.77';
+const BROADCAST_ADDR = "255.255.255.255";
+const MULTICAST_ADDR = "239.255.77.77";
 const BEACON_INTERVAL = 2000;
 const DEVICE_TTL = 8000;
 
@@ -13,7 +14,7 @@ export interface DiscoveredDevice {
   ip: string;
   port: number;
   lastSeen: number;
-  deviceType: 'desktop' | 'mobile' | 'unknown';
+  deviceType: "desktop" | "mobile" | "unknown";
 }
 
 type Listener = (devices: DiscoveredDevice[]) => void;
@@ -29,7 +30,6 @@ export class DiscoveryService {
 
   private running = false;
 
-  // cache device identity (IMPORTANT: no async spam per beacon)
   private deviceIdPromise = getDeviceId();
   private aliasPromise = getDeviceAlias();
 
@@ -77,28 +77,29 @@ export class DiscoveryService {
     await this._sendBeacon();
   }
 
-  // ---------------- SOCKET ----------------
-
   private _openSocket(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const sock = UdpSocket.createSocket({ type: 'udp4', reusePort: true });
+      const sock: any = UdpSocket.createSocket({
+        type: "udp4",
+        reusePort: true,
+      });
 
-      sock.once('error', reject);
+      sock.once("error", reject);
 
       sock.bind(PORT, () => {
-        sock.removeListener('error', reject);
+        sock.removeListener("error", reject);
 
         try {
           sock.setBroadcast(true);
           sock.addMembership(MULTICAST_ADDR);
         } catch {}
 
-        sock.on('message', (msg: Buffer, rinfo) => {
+        sock.on("message", (msg: Buffer, rinfo) => {
           this._onMessage(msg, rinfo);
         });
 
-        sock.on('error', (err: Error) => {
-          console.warn('[Discovery] socket error:', err.message);
+        sock.on("error", (err: Error) => {
+          console.warn("[Discovery] socket error:", err.message);
 
           if (this.running) {
             setTimeout(async () => {
@@ -131,18 +132,18 @@ export class DiscoveryService {
 
     const payload = Buffer.from(
       JSON.stringify({
-        type: 'beacon',
+        type: "beacon",
         deviceId: await this.deviceIdPromise,
         alias: await this.aliasPromise,
-        deviceType: 'mobile',
+        deviceType: "mobile",
         port: PORT,
-        version: '1.0',
+        version: "1.0",
       }),
-      'utf8'
+      "utf8",
     );
 
     const send = (addr: string) =>
-      new Promise<void>(res => {
+      new Promise<void>((res) => {
         this.socket!.send(payload, 0, payload.length, PORT, addr, () => res());
       });
 
@@ -152,12 +153,15 @@ export class DiscoveryService {
 
   // ---------------- RECEIVE ----------------
 
-  private _onMessage(msg: Buffer, rinfo: { address: string; port: number }): void {
+  private _onMessage(
+    msg: Buffer,
+    rinfo: { address: string; port: number },
+  ): void {
     try {
-      const data = JSON.parse(msg.toString('utf8'));
+      const data = JSON.parse(msg.toString("utf8"));
 
-      if (data.type !== 'beacon') return;
-      if (data.deviceType === 'mobile') return;
+      if (data.type !== "beacon") return;
+      if (data.deviceType === "mobile") return;
 
       const now = Date.now();
 
@@ -169,7 +173,7 @@ export class DiscoveryService {
         ip: rinfo.address,
         port: data.port ?? PORT,
         lastSeen: now,
-        deviceType: data.deviceType ?? 'desktop',
+        deviceType: data.deviceType ?? "desktop",
       };
 
       this.devices.set(device.id, device);

@@ -1,64 +1,70 @@
-import { useState } from 'react';
-import type { Transfer } from '../../shared';
+import { useState, useEffect, useRef } from "react";
+import type { Transfer, DeviceInfo } from "../../shared";
 
 interface UseTransferResult {
-  transfer:       Transfer | null;
-  startTransfer:  (file: File) => void;
+  transfer: Transfer | null;
+  startTransfer: (file: File, device: DeviceInfo) => Promise<void>;
   cancelTransfer: () => void;
 }
 
 export function useTransfer(): UseTransferResult {
   const [transfer, setTransfer] = useState<Transfer | null>(null);
+  const fileNameRef = useRef<string | null>(null);
 
-  const startTransfer = (file: File) => {
-    setTransfer({
-      fileName:   file.name,
-      progress:   0,
-      bytesSent:  0,
-      totalBytes: file.size,
-      speed:      0,
-      status:     'connecting',
+  useEffect(() => {
+    if (!window.electronAPI) return;
+
+    window.electronAPI.onTransferProgress((data) => {
+      if (fileNameRef.current && data.fileName !== fileNameRef.current) return;
+
+      setTransfer({
+        fileName: data.fileName,
+        progress: data.progress,
+        bytesSent: data.bytesSent,
+        totalBytes: data.totalBytes,
+        speed: data.speed ?? 0,
+        status: data.error ? "error" : data.done ? "complete" : "transferring",
+      });
     });
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', 'http://localhost:53318/upload');
-    xhr.setRequestHeader('x-file-name', encodeURIComponent(file.name));
-
-    let lastLoaded = 0;
-    let lastTime   = Date.now();
-
-    xhr.upload.onprogress = (event) => {
-      const now     = Date.now();
-      const elapsed = (now - lastTime) / 1000;
-      const speed   = elapsed > 0 ? (event.loaded - lastLoaded) / elapsed : 0;
-
-      lastLoaded = event.loaded;
-      lastTime   = now;
-
-      setTransfer(prev => prev ? {
-        ...prev,
-        status:    'transferring',
-        progress:  event.loaded / event.total,
-        bytesSent: event.loaded,
-        speed,
-      } : null);
+    return () => {
+      window.electronAPI.removeAllListeners("transfer:progress");
     };
+  }, []);
 
-    xhr.onload = () => {
-      setTransfer(prev => prev
-        ? { ...prev, status: xhr.status === 200 ? 'complete' : 'error', progress: 1 }
-        : null
-      );
-    };
+  const startTransfer = async (file: File, device: DeviceInfo) => {
+    fileNameRef.current = file.name;
 
-    xhr.onerror = () => {
-      setTransfer(prev => prev ? { ...prev, status: 'error' } : null);
-    };
+    setTransfer({
+      fileName: file.name,
+      progress: 0,
+      bytesSent: 0,
+      totalBytes: file.size,
+      speed: 0,
+      status: "connecting",
+    });
 
-    xhr.send(new FormData());
+    const filePath = window.electronAPI.getPathForFile(file);
+    if (!filePath) {
+      setTransfer((prev) => (prev ? { ...prev, status: "error" } : null));
+      return;
+    }
+
+    const result = await window.electronAPI.sendFile({
+      filePath,
+      targetIp: device.ip,
+      deviceId: device.id,
+    });
+
+    if (!result.success) {
+      setTransfer((prev) => (prev ? { ...prev, status: "error" } : null));
+    }
   };
 
-  const cancelTransfer = () => setTransfer(null);
+  const cancelTransfer = () => {
+    fileNameRef.current = null;
+    setTransfer(null);
+  };
 
   return { transfer, startTransfer, cancelTransfer };
 }

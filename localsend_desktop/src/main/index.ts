@@ -1,14 +1,12 @@
-import path from 'path';
-import { app, BrowserWindow } from 'electron';
-import { UdpDiscoveryService } from './services/udp.service';
-import { WsTransferService } from './services/ws.service';
-import { registerIpcHandlers } from './ipc/index';
-import { createTcpService } from './services/tcp.service';
-import { DEFAULT_TCP_PORT } from '../shared/constants';
+import path from "path";
+import { app, BrowserWindow } from "electron";
+import { UdpDiscoveryService } from "./services/udp.service";
+import { WsTransferService } from "./services/ws.service";
+import { registerIpcHandlers } from "./ipc/discovery.handlers";
+import { createTcpService } from "./services/tcp.service";
+import { DEFAULT_TCP_PORT } from "../shared/constants";
 
-const TCP_PORT = Number(
-  process.argv[2] ?? DEFAULT_TCP_PORT
-);
+const TCP_PORT = Number(process.argv[2] ?? DEFAULT_TCP_PORT);
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -22,7 +20,7 @@ function createWindow(): BrowserWindow {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/preload.js'),
+      preload: path.join(__dirname, "../preload/preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -33,7 +31,7 @@ function createWindow(): BrowserWindow {
     win.webContents.openDevTools();
   } else {
     win.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
+      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
 
@@ -45,13 +43,13 @@ app.whenReady().then(() => {
   mainWindow = createWindow();
   registerIpcHandlers(udpService, wsService, mainWindow);
 });
-app.on('window-all-closed', () => {
+app.on("window-all-closed", () => {
   udpService.stop();
   wsService.stop();
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== "darwin") app.quit();
 });
 
-app.on('before-quit', () => {
+app.on("before-quit", () => {
   udpService.stop();
   wsService.stop();
 });

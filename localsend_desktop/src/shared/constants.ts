@@ -10,6 +10,7 @@ export const channels = {
   setConfig: "ipc-set-config",
   transferRequest: "transfer:request",
   transferRespond: "transfer:respond",
+  transferProgress: "transfer:progress", // ← agregado
   deviceFound: "device:found",
   deviceLost: "device:lost",
 };

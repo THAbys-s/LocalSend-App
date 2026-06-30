@@ -4,14 +4,29 @@ declare global {
       onDeviceFound: (cb: (device: DeviceInfo) => void) => void;
       onDeviceLost: (cb: (deviceId: string) => void) => void;
       onTransferRequest: (cb: (data: TransferRequestData) => void) => void;
-      respondTransfer: (deviceId: string, accept: boolean, reason?: string) => Promise<{ success: boolean }>;
+      onTransferProgress: (cb: (data: TransferProgressData) => void) => void; // ← agregado
+      respondTransfer: (
+        deviceId: string,
+        accept: boolean,
+        reason?: string,
+      ) => Promise<{ success: boolean }>;
       removeAllListeners: (channel: string) => void;
+      getPathForFile: (file: File) => string;
+      sendFile: (
+        payload: SendFilePayload,
+      ) => Promise<{ success: boolean; error?: string }>;
     };
   }
 }
 
-export type DeviceType = 'desktop' | 'laptop' | 'mobile' | 'unknown';
-export type DeviceOS = 'windows' | 'macos' | 'linux' | 'android' | 'ios' | 'unknown';
+export type DeviceType = "desktop" | "laptop" | "mobile" | "unknown";
+export type DeviceOS =
+  | "windows"
+  | "macos"
+  | "linux"
+  | "android"
+  | "ios"
+  | "unknown";
 
 export interface DeviceInfo {
   id: string;
@@ -23,7 +38,17 @@ export interface DeviceInfo {
   version: string;
 }
 
-export type CollisionPolicy = 'replace' | 'keepBoth' | 'skip';
+export interface BeaconPayload {
+  type: "beacon";
+  id: string;
+  alias: string;
+  deviceType: DeviceType;
+  os: DeviceOS;
+  port: number;
+  version: string;
+}
+
+export type CollisionPolicy = "replace" | "keepBoth" | "skip";
 
 export interface FileMetadata {
   name: string;
@@ -32,12 +57,12 @@ export interface FileMetadata {
 }
 
 export interface Transfer {
-  fileName:   string;
-  progress:   number;
-  bytesSent:  number;
+  fileName: string;
+  progress: number;
+  bytesSent: number;
   totalBytes: number;
-  speed:      number;
-  status:     TransferStatus;
+  speed: number;
+  status: TransferStatus;
 }
 
 export interface TransferRequest {
@@ -62,4 +87,24 @@ export interface TransferRequestData {
   };
 }
 
-export type TransferStatus = 'connecting' | 'transferring' | 'complete' | 'error';
+export interface TransferProgressData {
+  fileName: string;
+  bytesSent: number;
+  totalBytes: number;
+  progress: number;
+  speed?: number;
+  done?: boolean;
+  error?: string;
+}
+
+export type TransferStatus =
+  | "connecting"
+  | "transferring"
+  | "complete"
+  | "error";
+
+export interface AppConfig {
+  deviceId: string;
+  deviceAlias: string;
+  downloadDir?: string;
+}

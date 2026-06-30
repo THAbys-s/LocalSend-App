@@ -1,19 +1,24 @@
-import { contextBridge, ipcRenderer } from 'electron';
-import type { DeviceInfo, TransferRequestData } from '../shared';
+import { contextBridge, ipcRenderer, webUtils } from "electron";
+import type {
+  DeviceInfo,
+  TransferRequestData,
+  SendFilePayload,
+} from "../shared";
 
-contextBridge.exposeInMainWorld('electronAPI', {
+contextBridge.exposeInMainWorld("electronAPI", {
   onDeviceFound: (cb: (device: DeviceInfo) => void) =>
-    ipcRenderer.on('device:found', (_event, device) => cb(device)),
-
+    ipcRenderer.on("device:found", (_event, device) => cb(device)),
   onDeviceLost: (cb: (deviceId: string) => void) =>
-    ipcRenderer.on('device:lost', (_event, deviceId) => cb(deviceId)),
-
+    ipcRenderer.on("device:lost", (_event, deviceId) => cb(deviceId)),
   onTransferRequest: (cb: (data: TransferRequestData) => void) =>
-    ipcRenderer.on('transfer:request', (_event, data) => cb(data)),
-
+    ipcRenderer.on("transfer:request", (_event, data) => cb(data)),
+  onTransferProgress: (cb: (data: any) => void) =>
+    ipcRenderer.on("transfer:progress", (_event, data) => cb(data)),
   respondTransfer: (deviceId: string, accept: boolean, reason?: string) =>
-    ipcRenderer.invoke('transfer:respond', { deviceId, accept, reason }),
-
+    ipcRenderer.invoke("transfer:respond", { deviceId, accept, reason }),
   removeAllListeners: (channel: string) =>
     ipcRenderer.removeAllListeners(channel),
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
+  sendFile: (payload: SendFilePayload) =>
+    ipcRenderer.invoke("ipc-send-file", payload),
 });

@@ -1,9 +1,15 @@
-import http from "http";
+import net from "net";
 import fs from "fs";
 import path from "path";
-import { pipeline } from "stream/promises";
 import { configStore } from "../store/config.store";
 import type { WsTransferService } from "./ws.service";
+
+interface TransferHeader {
+  name: string;
+  size: number;
+  mimeType: string;
+  deviceId: string;
+}
 
 function getDownloadDir(): string {
   const dir =
@@ -27,47 +33,87 @@ function resolveCollision(dir: string, fileName: string): string {
 }
 
 export function createTcpService(port = 53318, wsService: WsTransferService) {
-  return http
-    .createServer(async (req, res) => {
-      if (req.method !== "POST" || req.url !== "/upload") {
-        res.writeHead(404);
-        res.end();
-        return;
-      }
+  const server = net.createServer((socket) => {
+    let headerBuffer = Buffer.alloc(0);
+    let headerParsed = false;
+    let writeStream: fs.WriteStream | null = null;
+    let header: TransferHeader | null = null;
 
-      const deviceId = String(req.headers["x-device-id"] ?? "");
+    socket.on("data", (chunk: Buffer) => {
+      if (!headerParsed) {
+        headerBuffer = Buffer.concat([headerBuffer, chunk]);
+        const newlineIndex = headerBuffer.indexOf(0x0a);
 
-      if (!deviceId || !wsService.isAccepted(deviceId)) {
-        console.warn(
-          "[TCP] Transferencia rechazada: no aceptada por el usuario",
-          deviceId,
-        );
-        res.writeHead(403);
-        res.end("No aceptado");
-        return;
-      }
+        if (newlineIndex === -1) {
+          if (headerBuffer.length > 16 * 1024) {
+            console.warn("[TCP] Header demasiado grande, cerrando conexión");
+            socket.destroy();
+          }
+          return;
+        }
 
-      try {
-        const fileName = decodeURIComponent(
-          String(req.headers["x-file-name"] ?? "archivo.bin"),
-        );
+        const headerLine = headerBuffer
+          .subarray(0, newlineIndex)
+          .toString("utf8");
+        const rest = headerBuffer.subarray(newlineIndex + 1);
+
+        try {
+          header = JSON.parse(headerLine);
+        } catch {
+          console.error("[TCP] Header inválido, cerrando conexión");
+          socket.destroy();
+          return;
+        }
+
+        if (!header?.deviceId || !wsService.isAccepted(header.deviceId)) {
+          console.warn(
+            "[TCP] Transferencia rechazada: no aceptada por el usuario",
+            header?.deviceId,
+          );
+          socket.destroy();
+          return;
+        }
+
         const downloadDir = getDownloadDir();
-        const destination = resolveCollision(downloadDir, fileName);
-        const writeStream = fs.createWriteStream(destination);
+        const destination = resolveCollision(downloadDir, header.name);
+        writeStream = fs.createWriteStream(destination);
+        headerParsed = true;
 
-        await pipeline(req, writeStream);
+        if (rest.length > 0) {
+          const ok = writeStream.write(rest);
+          if (!ok) socket.pause();
+        }
 
-        wsService.consumeAcceptance(deviceId); // limpia el estado para evitar que se pueda reutilizar la aceptación.
-        console.log("[TCP] Archivo recibido:", fileName, "->", destination);
-        res.writeHead(200);
-        res.end("OK");
-      } catch (error) {
-        console.error("[TCP] Error:", error);
-        res.writeHead(500);
-        res.end("ERROR");
+        writeStream.on("drain", () => socket.resume());
+      } else if (writeStream) {
+        const ok = writeStream.write(chunk);
+        if (!ok) socket.pause();
       }
-    })
-    .listen(port, () => {
-      console.log(`[TCP] Escuchando en ${port}`);
     });
+
+    socket.on("end", () => {
+      if (writeStream && header) {
+        const h = header;
+        writeStream.end(() => {
+          wsService.consumeAcceptance(h.deviceId);
+          console.log("[TCP] Archivo recibido:", h.name);
+        });
+      }
+    });
+
+    socket.on("error", (err) => {
+      console.error("[TCP] Socket error:", err.message);
+      writeStream?.destroy();
+    });
+  });
+
+  server.on("error", (err) => {
+    console.error("[TCP] Server error:", err.message);
+  });
+
+  server.listen(port, () => {
+    console.log(`[TCP] Escuchando en ${port}`);
+  });
+
+  return server;
 }

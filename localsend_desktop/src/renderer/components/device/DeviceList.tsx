@@ -1,11 +1,17 @@
-import type { DeviceInfo } from '../../../shared';
-import { DeviceItem } from './DeviceItem';
+import type { DeviceInfo } from "../../../shared";
+import { DeviceItem } from "./DeviceItem";
 
 interface Props {
   devices: DeviceInfo[];
+  selectedDeviceId?: string | null;
+  onSelectDevice: (device: DeviceInfo) => void;
 }
 
-export function DeviceList({ devices }: Props) {
+export function DeviceList({
+  devices,
+  selectedDeviceId,
+  onSelectDevice,
+}: Props) {
   if (devices.length === 0) {
     return (
       <>
@@ -27,8 +33,13 @@ export function DeviceList({ devices }: Props) {
 
   return (
     <div style={styles.container}>
-      {devices.map(device => (
-        <DeviceItem key={device.id} device={device} />
+      {devices.map((device) => (
+        <DeviceItem
+          key={device.id}
+          device={device}
+          isSelected={device.id === selectedDeviceId}
+          onSelect={() => onSelectDevice(device)}
+        />
       ))}
     </div>
   );
@@ -36,33 +47,33 @@ export function DeviceList({ devices }: Props) {
 
 const styles = {
   container: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '8px',
-    maxHeight: '400px',
-    overflowY: 'auto' as const,
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "8px",
+    maxHeight: "400px",
+    overflowY: "auto" as const,
   },
   empty: {
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    padding: '32px 16px',
-    minHeight: '200px',
-    backgroundColor: '#FFFFFF',
-    borderRadius: '16px',
-    border: '1px solid #E8EDF2',
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    padding: "32px 16px",
+    minHeight: "200px",
+    backgroundColor: "#FFFFFF",
+    borderRadius: "16px",
+    border: "1px solid #E8EDF2",
   },
   emptyState: {
-    textAlign: 'center' as const,
+    textAlign: "center" as const,
   },
   emptyIcon: {
-    fontSize: '32px',
-    display: 'block',
-    marginBottom: '8px',
-    animation: 'bounce 2s ease-in-out infinite',
+    fontSize: "32px",
+    display: "block",
+    marginBottom: "8px",
+    animation: "bounce 2s ease-in-out infinite",
   },
   emptyText: {
-    fontSize: '14px',
-    color: '#6B7280',
+    fontSize: "14px",
+    color: "#6B7280",
     margin: 0,
   },
 };
