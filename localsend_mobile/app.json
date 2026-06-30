@@ -10,13 +10,18 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.localsendmobile",
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "LocalSend necesita acceso a la red local para descubrir computadoras cercanas y enviarles archivos sin usar Internet.",
-        "NSBonjourServices": ["_localsend._tcp", "_localsend._udp"],
+        "NSBonjourServices": [
+          "_localsend._tcp",
+          "_localsend._udp"
+        ],
         "NSPhotoLibraryUsageDescription": "LocalSend necesita acceso a tu galería para seleccionar fotos y videos.",
         "NSPhotoLibraryAddUsageDescription": "LocalSend puede guardar archivos recibidos en tu galería.",
         "NSAppTransportSecurity": {
@@ -31,22 +36,23 @@
       },
       "package": "com.localsendmobile",
       "permissions": [
-        "INTERNET",
-        "ACCESS_NETWORK_STATE",
-        "ACCESS_WIFI_STATE",
-        "CHANGE_WIFI_MULTICAST_STATE",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "READ_MEDIA_IMAGES",
-        "READ_MEDIA_VIDEO",
-        "READ_MEDIA_AUDIO",
-        "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_DATA_SYNC",
-        "VIBRATE",
-        "RECEIVE_BOOT_COMPLETED",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO"
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -57,7 +63,8 @@
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
             "minSdkVersion": 24,
-            "enableProguardInReleaseBuilds": false
+            "enableProguardInReleaseBuilds": false,
+            "enableMinifyInReleaseBuilds": false
           },
           "ios": {
             "deploymentTarget": "16.4"
@@ -78,7 +85,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
+        "projectId": "31636b2c-a631-4c88-8498-f96a8fd9f0a5"
       }
     }
   }
