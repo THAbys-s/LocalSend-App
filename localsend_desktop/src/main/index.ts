@@ -40,6 +40,8 @@ function createWindow(): BrowserWindow {
 
 app.whenReady().then(() => {
   createTcpService(TCP_PORT, wsService);
+  udpService.start();
+  wsService.start();
   mainWindow = createWindow();
   registerIpcHandlers(udpService, wsService, mainWindow);
 });
