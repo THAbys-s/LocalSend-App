@@ -133,9 +133,10 @@ export class DiscoveryService {
     const payload = Buffer.from(
       JSON.stringify({
         type: "beacon",
-        deviceId: await this.deviceIdPromise,
+        id: await this.deviceIdPromise,
         alias: await this.aliasPromise,
         deviceType: "mobile",
+        os: "android",
         port: PORT,
         version: "1.0",
       }),
@@ -165,10 +166,10 @@ export class DiscoveryService {
 
       const now = Date.now();
 
-      const existing = this.devices.get(data.deviceId);
-
+      const existing = this.devices.get(data.id);
+      
       const device: DiscoveredDevice = {
-        id: data.deviceId ?? rinfo.address,
+        id: data.id ?? rinfo.address,
         alias: data.alias ?? `Desktop (${rinfo.address})`,
         ip: rinfo.address,
         port: data.port ?? PORT,
@@ -178,7 +179,6 @@ export class DiscoveryService {
 
       this.devices.set(device.id, device);
 
-      // ALWAYS notify (fixes frozen UI + stale radar)
       this._notify();
     } catch {}
   }
