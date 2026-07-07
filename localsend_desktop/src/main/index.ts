@@ -7,6 +7,8 @@ import { createTcpService } from "./services/tcp.service";
 import { DEFAULT_TCP_PORT } from "../shared/constants";
 
 const TCP_PORT = Number(process.argv[2] ?? DEFAULT_TCP_PORT);
+console.log("[Main] argv:", process.argv);
+console.log("[Main] TCP_PORT resuelto:", TCP_PORT);
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;

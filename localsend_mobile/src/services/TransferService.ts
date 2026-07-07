@@ -320,12 +320,16 @@ class TransferService {
 
   private _write(client: any, data: Buffer): Promise<void> {
     return new Promise((resolve, reject) => {
-      client.write(data, (err: Error | null) =>
-        err ? reject(err) : resolve(),
-      );
+      try {
+        client.write(data, (err: Error | null) => {
+          if (err) reject(err);
+        });
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
     });
   }
-
   private _emit(state: TransferProgress): void {
     this.current = state;
     for (const fn of this.listeners) fn(state);
