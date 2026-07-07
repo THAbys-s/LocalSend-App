@@ -12,8 +12,12 @@ interface TransferHeader {
 }
 
 function getDownloadDir(): string {
-  const dir =
-    configStore.get("downloadDir") ?? path.join(process.cwd(), "downloads");
+  const stored = configStore.get("downloadDir") as string | undefined;
+  const dir: string =
+    stored && stored.trim() !== ""
+      ? stored
+      : path.join(process.cwd(), "downloads");
+
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return dir;
 }

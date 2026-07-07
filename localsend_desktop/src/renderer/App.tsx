@@ -8,6 +8,7 @@ import { TransferConfirmDialog } from "./components/transfer/TransferConfirmDial
 import { useDiscovery } from "./hooks/useDiscovery";
 import { useTransfer } from "./hooks/useTransfer";
 import type { TransferRequestData, DeviceInfo } from "../shared";
+import { DownloadDirSelector } from "./components/ui/DownloadDirSelector";
 
 export default function App() {
   const { devices } = useDiscovery();
@@ -130,10 +131,9 @@ export default function App() {
         </section>
 
         <aside style={styles.rightPanel}>
-          <div style={styles.statsCard}>
-            <h3 style={styles.statsCardTitle}>Conectados</h3>
-            <p style={styles.statNumber}>{devices.length}</p>
-          </div>
+          <aside style={styles.rightPanel}>
+            <DownloadDirSelector />
+          </aside>
           <div style={styles.statsCard}>
             {transfer ? (
               <>

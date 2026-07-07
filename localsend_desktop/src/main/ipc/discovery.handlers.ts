@@ -7,6 +7,68 @@ import type { SendFilePayload } from "../../shared";
 import { configStore } from "../store/config.store";
 import { UdpDiscoveryService } from "../services/udp.service";
 import { WsTransferService } from "../services/ws.service";
+import { dialog } from "electron";
+
+function requestHandshake(
+  targetIp: string,
+  handshakePort: number,
+  payload: {
+    deviceId: string;
+    alias: string;
+    file: { name: string; size: number; mimeType: string };
+  },
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(
+      { host: targetIp, port: handshakePort },
+      () => {
+        socket.write(
+          JSON.stringify({ type: "transfer-request", ...payload }) + "\n",
+        );
+      },
+    );
+
+    let buffer = Buffer.alloc(0);
+    const timeout = setTimeout(() => {
+      socket.destroy();
+      reject(new Error("Timeout esperando respuesta del receptor"));
+    }, 35000);
+
+    socket.on("data", (chunk: Buffer) => {
+      buffer = Buffer.concat([buffer, chunk]);
+      const newlineIndex = buffer.indexOf(0x0a);
+      if (newlineIndex === -1) return;
+
+      clearTimeout(timeout);
+      const line = buffer.subarray(0, newlineIndex).toString("utf8");
+      try {
+        const msg = JSON.parse(line);
+        if (msg.type === "accept") {
+          socket.end();
+          resolve();
+        } else if (msg.type === "reject") {
+          socket.end();
+          reject(new Error(msg.message ?? "Transferencia rechazada"));
+        } else {
+          socket.end();
+          reject(new Error(msg.message ?? "Error del receptor"));
+        }
+      } catch {
+        socket.destroy();
+        reject(new Error("Respuesta inválida del receptor"));
+      }
+    });
+
+    socket.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(
+        new Error(
+          `No se pudo conectar a ${targetIp}:${handshakePort}: ${err.message}`,
+        ),
+      );
+    });
+  });
+}
 
 export function registerTransferHandlers(
   wsService: WsTransferService,
@@ -41,94 +103,101 @@ export function registerTransferHandlers(
     channels.sendFile,
     async (_event, payload: SendFilePayload) => {
       return new Promise((resolve) => {
-        try {
-          const { filePath, targetIp, deviceId } = payload;
-          const fileName = path.basename(filePath);
-          const stats = fs.statSync(filePath);
-          const totalBytes = stats.size;
+        (async () => {
+          try {
+            const { filePath, targetIp } = payload;
+            const fileName = path.basename(filePath);
+            const stats = fs.statSync(filePath);
+            const totalBytes = stats.size;
 
-          let bytesSent = 0;
-          let lastTime = Date.now();
-          let lastBytes = 0;
+            const myId = configStore.get("deviceId") as string;
+            const myAlias = configStore.get("deviceAlias") as string;
 
-          const client = net.createConnection(
-            { host: targetIp, port: 53318 },
-            () => {
-              const headerLine =
-                JSON.stringify({
-                  name: fileName,
-                  size: totalBytes,
-                  mimeType: "application/octet-stream",
-                  deviceId,
-                }) + "\n";
+            // 1. Handshake — pedir aceptación antes de mandar cualquier byte
+            await requestHandshake(targetIp, 53317, {
+              deviceId: myId,
+              alias: myAlias,
+              file: {
+                name: fileName,
+                size: totalBytes,
+                mimeType: "application/octet-stream",
+              },
+            });
 
-              client.write(headerLine, () => {
-                const readStream = fs.createReadStream(filePath);
+            // 2. Ya aceptado — abrir canal de datos
+            let bytesSent = 0;
+            let lastTime = Date.now();
+            let lastBytes = 0;
 
-                readStream.on("data", (chunk: Buffer) => {
-                  bytesSent += chunk.length;
+            const client = net.createConnection(
+              { host: targetIp, port: 53318 },
+              () => {
+                const headerLine =
+                  JSON.stringify({
+                    name: fileName,
+                    size: totalBytes,
+                    mimeType: "application/octet-stream",
+                    deviceId: myId,
+                  }) + "\n";
 
-                  const now = Date.now();
-                  const elapsed = now - lastTime;
-                  const speed =
-                    elapsed >= 500
-                      ? ((bytesSent - lastBytes) / elapsed) * 1000
-                      : undefined;
-                  if (elapsed >= 500) {
-                    lastTime = now;
-                    lastBytes = bytesSent;
-                  }
+                client.write(headerLine, () => {
+                  const readStream = fs.createReadStream(filePath);
 
-                  mainWindow.webContents.send(channels.transferProgress, {
-                    fileName,
-                    bytesSent,
-                    totalBytes,
-                    progress: bytesSent / totalBytes,
-                    speed,
+                  readStream.on("data", (chunk: Buffer) => {
+                    bytesSent += chunk.length;
+                    const now = Date.now();
+                    const elapsed = now - lastTime;
+                    const speed =
+                      elapsed >= 500
+                        ? ((bytesSent - lastBytes) / elapsed) * 1000
+                        : undefined;
+                    if (elapsed >= 500) {
+                      lastTime = now;
+                      lastBytes = bytesSent;
+                    }
+
+                    mainWindow.webContents.send(channels.transferProgress, {
+                      fileName,
+                      bytesSent,
+                      totalBytes,
+                      progress: bytesSent / totalBytes,
+                      speed,
+                    });
+                  });
+
+                  readStream.pipe(client);
+                  readStream.on("error", (err) => {
+                    client.destroy();
+                    resolve({ success: false, error: err.message });
                   });
                 });
+              },
+            );
 
-                readStream.pipe(client);
-
-                readStream.on("error", (err) => {
-                  client.destroy();
-                  resolve({ success: false, error: err.message });
-                });
+            client.on("close", () => {
+              console.log(`[IPC] Archivo enviado: ${fileName} -> ${targetIp}`);
+              mainWindow.webContents.send(channels.transferProgress, {
+                fileName,
+                bytesSent: totalBytes,
+                totalBytes,
+                progress: 1,
+                speed: 0,
+                done: true,
               });
-            },
-          );
-
-          client.on("close", () => {
-            console.log(`[IPC] Archivo enviado: ${fileName} -> ${targetIp}`);
-            mainWindow.webContents.send(channels.transferProgress, {
-              fileName,
-              bytesSent: totalBytes,
-              totalBytes,
-              progress: 1,
-              speed: 0,
-              done: true,
+              resolve({ success: true });
             });
-            resolve({ success: true });
-          });
 
-          client.on("error", (err) => {
-            console.error("[IPC] Error enviando archivo:", err);
-            mainWindow.webContents.send(channels.transferProgress, {
-              fileName,
-              bytesSent,
-              totalBytes,
-              progress: bytesSent / totalBytes,
-              speed: 0,
-              error: err.message,
+            client.on("error", (err) => {
+              resolve({ success: false, error: err.message });
             });
-            resolve({ success: false, error: err.message });
-          });
-        } catch (error) {
-          resolve({
-            success: false,
-            error: error instanceof Error ? error.message : "Error desconocido",
-          });
-        }
+          } catch (error) {
+            resolve({
+              success: false,
+              error:
+                error instanceof Error ? error.message : "Error desconocido",
+            });
+          }
+        })();
       });
     },
   );
@@ -163,5 +232,27 @@ export function registerIpcHandlers(
   ipcMain.handle(channels.setConfig, (_event, config) => {
     configStore.set(config);
     return { success: true };
+  });
+  ipcMain.handle(channels.selectDownloadDir, async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ["openDirectory", "createDirectory"],
+      title: "Elegir carpeta de descargas",
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false };
+    }
+
+    const selectedDir = result.filePaths[0];
+    configStore.set("downloadDir", selectedDir);
+    return { success: true, path: selectedDir };
+  });
+
+  ipcMain.handle(channels.getConfig, () => {
+    return {
+      deviceId: configStore.get("deviceId"),
+      deviceAlias: configStore.get("deviceAlias"),
+      downloadDir: configStore.get("downloadDir") || null,
+    };
   });
 }

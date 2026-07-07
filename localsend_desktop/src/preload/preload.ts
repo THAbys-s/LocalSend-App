@@ -21,4 +21,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   sendFile: (payload: SendFilePayload) =>
     ipcRenderer.invoke("ipc-send-file", payload),
+  selectDownloadDir: () => ipcRenderer.invoke("ipc-select-download-dir"),
+  getConfig: () => ipcRenderer.invoke("ipc-get-config"),
 });

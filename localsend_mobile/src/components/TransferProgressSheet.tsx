@@ -10,8 +10,6 @@ import { useTheme } from '../hooks/useTheme';
 import { TransferProgress } from '../services/TransferService';
 import { formatBytes, formatSpeed } from '../utils/deviceInfo';
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
 const STATUS_LABEL: Record<string, string> = {
   connecting:  'Conectando...',
   handshaking: 'Negociando...',
@@ -21,15 +19,11 @@ const STATUS_LABEL: Record<string, string> = {
   error:       'Error',
 };
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 interface Props {
   progress:  TransferProgress;
   onCancel:  () => void;
   onDismiss: () => void;
 }
-
-// ─── Component ───────────────────────────────────────────────────────────────
 
 export function TransferProgressSheet({ progress, onCancel, onDismiss }: Props) {
   const { colors, t, s, r } = useTheme();
@@ -53,8 +47,6 @@ export function TransferProgressSheet({ progress, onCancel, onDismiss }: Props) 
     width: `${barFill.value * 100}%` as any,
   }));
 
-  // ── Derived state ──────────────────────────────────────────────────────────
-
   const isActive  = ['connecting', 'handshaking', 'sending'].includes(progress.status);
   const isSuccess = progress.status === 'success';
   const isError   = progress.status === 'error' || progress.status === 'rejected';
@@ -63,8 +55,6 @@ export function TransferProgressSheet({ progress, onCancel, onDismiss }: Props) 
   const statusColor = isSuccess ? colors.success
                     : isError   ? colors.error
                     : colors.primary;
-
-  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <Animated.View
@@ -150,8 +140,6 @@ export function TransferProgressSheet({ progress, onCancel, onDismiss }: Props) 
     </Animated.View>
   );
 }
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   sheet: {

@@ -8,8 +8,6 @@ import Animated, {
 import { useTheme } from '../hooks/useTheme';
 import { DiscoveredDevice } from '../services/DiscoveryService';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
 const AVATAR_COLORS = [
   '#00C896', '#7C3AED', '#3B82F6',
   '#EF4444', '#F59E0B', '#10B981',
@@ -21,15 +19,11 @@ function avatarColorFor(alias: string): string {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 interface Props {
   device:   DiscoveredDevice;
   selected: boolean;
   onPress:  (device: DiscoveredDevice) => void;
 }
-
-// ─── Component ───────────────────────────────────────────────────────────────
 
 export function DeviceCard({ device, selected, onPress }: Props) {
   const { colors, t, s, r } = useTheme();
@@ -88,8 +82,6 @@ export function DeviceCard({ device, selected, onPress }: Props) {
     </Animated.View>
   );
 }
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   card: {

@@ -120,8 +120,6 @@ export class DiscoveryService {
     });
   }
 
-  // ---------------- BEACON ----------------
-
   private _startBeaconLoop(): void {
     this._sendBeacon();
     this.beaconTimer = setInterval(() => this._sendBeacon(), BEACON_INTERVAL);
@@ -152,8 +150,6 @@ export class DiscoveryService {
     await send(MULTICAST_ADDR);
   }
 
-  // ---------------- RECEIVE ----------------
-
   private _onMessage(
     msg: Buffer,
     rinfo: { address: string; port: number },
@@ -165,8 +161,6 @@ export class DiscoveryService {
       if (data.deviceType === "mobile") return;
 
       const now = Date.now();
-
-      const existing = this.devices.get(data.id);
       
       const device: DiscoveredDevice = {
         id: data.id ?? rinfo.address,
@@ -183,8 +177,6 @@ export class DiscoveryService {
     } catch {}
   }
 
-  // ---------------- PRUNE ----------------
-
   private _startPruneLoop(): void {
     this.pruneTimer = setInterval(() => {
       const now = Date.now();
@@ -200,8 +192,6 @@ export class DiscoveryService {
       if (changed) this._notify();
     }, DEVICE_TTL / 2);
   }
-
-  // ---------------- LISTENERS ----------------
 
   private _notify(): void {
     const list = this.getDevices();

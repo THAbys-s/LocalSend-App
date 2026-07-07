@@ -15,6 +15,12 @@ declare global {
       sendFile: (
         payload: SendFilePayload,
       ) => Promise<{ success: boolean; error?: string }>;
+      selectDownloadDir: () => Promise<{ success: boolean; path?: string }>;
+      getConfig: () => Promise<{
+        deviceId: string;
+        deviceAlias: string;
+        downloadDir: string | null;
+      }>;
     };
   }
 }
