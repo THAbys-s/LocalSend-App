@@ -6,7 +6,7 @@ const PORT = 53317;
 const BROADCAST_ADDR = "255.255.255.255";
 const MULTICAST_ADDR = "239.255.77.77";
 const BEACON_INTERVAL = 2000;
-const DEVICE_TTL = 8000;
+const DEVICE_TTL = 15000;
 
 export interface DiscoveredDevice {
   id: string;
