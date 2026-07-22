@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { Transfer } from '../../../shared';
 import { formatBytes, formatSpeed, formatTime } from '../../utils/format';
 
