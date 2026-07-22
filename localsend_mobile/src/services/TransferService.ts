@@ -36,6 +36,8 @@ export interface FileToSend {
   thumbnailUri?: string;
 }
 
+export type TransferErrorKind = "network" | "rejected" | "unknown";
+
 type ProgressListener = (p: TransferProgress) => void;
 
 class TransferService {
@@ -84,7 +86,14 @@ class TransferService {
       if (this.cancelled) return;
       await this._tcpStream(ip, file, deviceId);
     } catch (err: any) {
-      this._emit({ ...this.current!, status: "error", progress: 0 });
+      const kind: TransferErrorKind = /ECONNREFUSED|ETIMEDOUT|Network|TCP/.test(
+        err.message,
+      )
+        ? "network"
+        : err.message === "Transferencia rechazada"
+          ? "rejected"
+          : "unknown";
+      this._emit({ ...this.current!, status: "error", progress: 0, errorKind: kind } as any);
       throw err;
     } finally {
       try {
