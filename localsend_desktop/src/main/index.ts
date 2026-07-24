@@ -2,7 +2,7 @@ import path from "path";
 import { app, BrowserWindow } from "electron";
 import { UdpDiscoveryService } from "./services/udp.service";
 import { WsTransferService } from "./services/ws.service";
-import { registerIpcHandlers } from "./ipc/discovery.handlers";
+import { registerIpcHandlers } from "./ipc";
 import { createTcpService } from "./services/tcp.service";
 import { DEFAULT_TCP_PORT } from "../shared/constants";
 

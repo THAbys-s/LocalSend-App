@@ -142,6 +142,7 @@ class TransferReceiverService {
         mimeType: string;
         deviceId: string;
       } | null = null;
+      let filePath: string | null = null;
 
       socket.on("data", async (chunk: Buffer) => {
         try {
@@ -174,8 +175,18 @@ class TransferReceiverService {
               ReactNativeBlobUtil.fs.dirs.DownloadDir ??
               ReactNativeBlobUtil.fs.dirs.DocumentDir;
 
-            const filePath = `${downloadDir}/${header.name}`;
+            filePath = `${downloadDir}/${header.name}`;
 
+            // Debugging console.logs para verificar ruta destino del archivo.
+            console.log(
+              "[Receiver] DownloadDir crudo:",
+              ReactNativeBlobUtil.fs.dirs.DownloadDir,
+            );
+            console.log(
+              "[Receiver] DocumentDir crudo:",
+              ReactNativeBlobUtil.fs.dirs.DocumentDir,
+            );
+            console.log("[Receiver] filePath calculado:", filePath);
             writeStream = await ReactNativeBlobUtil.fs.writeStream(
               filePath,
               "base64",
@@ -198,10 +209,18 @@ class TransferReceiverService {
       });
 
       socket.on("end", async () => {
-        if (!header || !writeStream) return;
+        if (!header || !writeStream || !filePath) return;
 
         try {
           await writeStream.close();
+
+          const exists = await ReactNativeBlobUtil.fs.exists(filePath);
+          const stat = exists
+            ? await ReactNativeBlobUtil.fs.stat(filePath)
+            : null;
+
+          console.log("[Receiver] ¿Archivo existe en filePath?:", exists);
+          console.log("[Receiver] Stat del archivo:", stat);
 
           this.accepted.delete(header.deviceId);
           this.pending.delete(header.deviceId);
