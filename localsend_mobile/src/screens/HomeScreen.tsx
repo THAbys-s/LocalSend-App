@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
+import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
@@ -36,11 +37,13 @@ export function HomeScreen() {
   const { colors, t, s, r } = useTheme();
   const { devices, status, error, start, stop, ping } = useDiscovery();
   const { progress, send, cancel, reset, isSending } = useTransfer();
-
   const [selectedFile, setSelectedFile] = useState<FileToSend | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<DiscoveredDevice | null>(
     null,
   );
+  const navigation = useNavigation<
+    NavigationProp<{ Settings: undefined }> & any
+  >();
 
   const { incoming, accept, reject } = useIncomingTransfer();
 
@@ -145,11 +148,21 @@ export function HomeScreen() {
           >
             LocalSend
           </Text>
-          <TouchableOpacity onPress={ping} style={styles.refreshBtn}>
-            <Text style={[styles.refreshIcon, { color: colors.primary }]}>
-              ↻
-            </Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row" }}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("Settings")}
+              style={styles.refreshBtn}
+            >
+              <Text style={[styles.refreshIcon, { color: colors.primary }]}>
+                ⚙
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={ping} style={styles.refreshBtn}>
+              <Text style={[styles.refreshIcon, { color: colors.primary }]}>
+                ↻
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Radar */}

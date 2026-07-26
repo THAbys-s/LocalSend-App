@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { HomeScreen } from "./src/screens/HomeScreen";
+import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { Colors } from "./src/theme";
 
 const Stack = createStackNavigator();
@@ -41,6 +42,7 @@ export default function App() {
         <NavigationContainer theme={scheme === "dark" ? darkTheme : lightTheme}>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>
