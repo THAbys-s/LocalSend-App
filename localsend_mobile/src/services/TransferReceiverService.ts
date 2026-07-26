@@ -1,6 +1,7 @@
 import TcpSocket from "react-native-tcp-socket";
-import ReactNativeBlobUtil from "react-native-blob-util";
 import { Buffer } from "@craftzdog/react-native-buffer";
+import { File, Directory, FileMode, Paths } from "expo-file-system";
+import { getDownloadDirUri } from "../utils/downloadDir";
 
 const HANDSHAKE_PORT = 53317;
 const DATA_PORT = 53318;
@@ -11,7 +12,20 @@ export interface IncomingTransferRequest {
   file: { name: string; size: number; mimeType: string };
 }
 
+export type ReceiverErrorReason =
+  | "no_folder"
+  | "no_space"
+  | "permission_denied"
+  | "write_error"
+  | "unknown";
+
+export interface ReceiverError {
+  reason: ReceiverErrorReason;
+  fileName?: string;
+}
+
 type RequestListener = (req: IncomingTransferRequest) => void;
+type ErrorListener = (err: ReceiverError) => void;
 
 interface PendingHandshake {
   deviceId: string;
@@ -26,10 +40,16 @@ class TransferReceiverService {
   private pending = new Map<string, PendingHandshake>();
   private accepted = new Set<string>();
   private listeners = new Set<RequestListener>();
+  private errorListeners = new Set<ErrorListener>();
 
   addListener(fn: RequestListener): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
+  }
+
+  addErrorListener(fn: ErrorListener): () => void {
+    this.errorListeners.add(fn);
+    return () => this.errorListeners.delete(fn);
   }
 
   start(): void {
@@ -71,6 +91,25 @@ class TransferReceiverService {
       p.socket.end();
     } catch (err) {
       console.warn("[Receiver] Error enviando reject:", err);
+    }
+  }
+
+  private _emitError(err: ReceiverError): void {
+    for (const fn of this.errorListeners) fn(err);
+  }
+
+  private _failTransfer(
+    socket: any,
+    reason: ReceiverErrorReason,
+    fileName?: string,
+  ): void {
+    this._emitError({ reason, fileName });
+    try {
+      socket.write(JSON.stringify({ type: "error", reason }) + "\n", () => {
+        socket.destroy();
+      });
+    } catch {
+      socket.destroy();
     }
   }
 
@@ -135,14 +174,14 @@ class TransferReceiverService {
     this.dataServer = TcpSocket.createServer((socket: any) => {
       let headerParsed = false;
       let headerBuffer = Buffer.alloc(0);
-      let writeStream: any = null;
       let header: {
         name: string;
         size: number;
         mimeType: string;
         deviceId: string;
       } | null = null;
-      let filePath: string | null = null;
+      let fileHandle: any = null;
+      let destFile: File | null = null;
 
       socket.on("data", async (chunk: Buffer) => {
         try {
@@ -155,12 +194,12 @@ class TransferReceiverService {
             const headerLine = headerBuffer
               .subarray(0, newlineIndex)
               .toString("utf8");
-
             const rest = headerBuffer.subarray(newlineIndex + 1);
 
             try {
               header = JSON.parse(headerLine);
             } catch {
+              console.error("[Receiver] Header inválido, cerrando conexión");
               socket.destroy();
               return;
             }
@@ -171,71 +210,76 @@ class TransferReceiverService {
               return;
             }
 
-            const downloadDir =
-              ReactNativeBlobUtil.fs.dirs.DownloadDir ??
-              ReactNativeBlobUtil.fs.dirs.DocumentDir;
+            if (Paths.availableDiskSpace < header.size) {
+              console.warn(
+                "[Receiver] Espacio insuficiente para recibir el archivo",
+              );
+              this._failTransfer(socket, "no_space", header.name);
+              return;
+            }
 
-            filePath = `${downloadDir}/${header.name}`;
+            const dirUri = await getDownloadDirUri();
+            if (!dirUri) {
+              console.warn("[Receiver] No hay carpeta de destino configurada");
+              this._failTransfer(socket, "no_folder", header.name);
+              return;
+            }
 
-            // Debugging console.logs para verificar ruta destino del archivo.
-            console.log(
-              "[Receiver] DownloadDir crudo:",
-              ReactNativeBlobUtil.fs.dirs.DownloadDir,
-            );
-            console.log(
-              "[Receiver] DocumentDir crudo:",
-              ReactNativeBlobUtil.fs.dirs.DocumentDir,
-            );
-            console.log("[Receiver] filePath calculado:", filePath);
-            writeStream = await ReactNativeBlobUtil.fs.writeStream(
-              filePath,
-              "base64",
-            );
+            try {
+              const dir = new Directory(dirUri);
+              const resolvedName = this._resolveCollision(dir, header.name);
+
+              destFile = dir.createFile(
+                resolvedName,
+                header.mimeType || "application/octet-stream",
+              );
+              fileHandle = destFile.open(FileMode.Append);
+            } catch (err) {
+              console.error("[Receiver] Error creando archivo destino:", err);
+              this._failTransfer(socket, "permission_denied", header.name);
+              return;
+            }
 
             headerParsed = true;
 
             if (rest.length > 0) {
-              await writeStream.write(rest.toString("base64"));
+              fileHandle.writeBytes(new Uint8Array(rest));
             }
-
             return;
           }
 
-          await writeStream.write(chunk.toString("base64"));
+          fileHandle.writeBytes(new Uint8Array(chunk));
         } catch (err) {
-          console.error(err);
+          console.error("[Receiver] Error escribiendo chunk:", err);
+          this._emitError({ reason: "write_error", fileName: header?.name });
           socket.destroy();
         }
       });
 
-      socket.on("end", async () => {
-        if (!header || !writeStream || !filePath) return;
+      socket.on("end", () => {
+        if (!header || !fileHandle) return;
 
         try {
-          await writeStream.close();
-
-          const exists = await ReactNativeBlobUtil.fs.exists(filePath);
-          const stat = exists
-            ? await ReactNativeBlobUtil.fs.stat(filePath)
-            : null;
-
-          console.log("[Receiver] ¿Archivo existe en filePath?:", exists);
-          console.log("[Receiver] Stat del archivo:", stat);
+          fileHandle.close();
+          console.log(
+            "[Receiver] Archivo recibido:",
+            header.name,
+            "->",
+            destFile?.uri,
+          );
 
           this.accepted.delete(header.deviceId);
           this.pending.delete(header.deviceId);
-
-          console.log("[Receiver] Archivo recibido:", header.name);
         } catch (err) {
           console.error("[Receiver] Error cerrando archivo:", err);
+          this._emitError({ reason: "write_error", fileName: header?.name });
         }
       });
 
-      socket.on("error", async (err: Error) => {
+      socket.on("error", (err: Error) => {
         console.error("[Receiver] Socket error:", err.message);
-
         try {
-          await writeStream?.close();
+          fileHandle?.close();
         } catch {}
       });
     });
@@ -243,6 +287,23 @@ class TransferReceiverService {
     this.dataServer.listen({ port: DATA_PORT, host: "0.0.0.0" }, () => {
       console.log(`[Receiver] Data escuchando en ${DATA_PORT}`);
     });
+  }
+
+  private _resolveCollision(dir: Directory, fileName: string): string {
+    const existingNames = new Set(dir.list().map((item) => item.name));
+    if (!existingNames.has(fileName)) return fileName;
+
+    const dotIndex = fileName.lastIndexOf(".");
+    const base = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
+    const ext = dotIndex > 0 ? fileName.slice(dotIndex) : "";
+
+    let counter = 1;
+    let candidate = `${base} (${counter})${ext}`;
+    while (existingNames.has(candidate)) {
+      counter++;
+      candidate = `${base} (${counter})${ext}`;
+    }
+    return candidate;
   }
 }
 
