@@ -24,6 +24,7 @@ export function useTransfer(): UseTransferResult {
         totalBytes: data.totalBytes,
         speed: data.speed ?? 0,
         status: data.error ? "error" : data.done ? "complete" : "transferring",
+        errorMessage: data.error ?? undefined,
       });
     });
 
@@ -46,7 +47,15 @@ export function useTransfer(): UseTransferResult {
 
     const filePath = window.electronAPI.getPathForFile(file);
     if (!filePath) {
-      setTransfer((prev) => (prev ? { ...prev, status: "error" } : null));
+      setTransfer((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "error",
+              errorMessage: "No se pudo acceder al archivo seleccionado.",
+            }
+          : null,
+      );
       return;
     }
 
@@ -57,7 +66,15 @@ export function useTransfer(): UseTransferResult {
     });
 
     if (!result.success) {
-      setTransfer((prev) => (prev ? { ...prev, status: "error" } : null));
+      setTransfer((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "error",
+              errorMessage: result.error ?? "Ocurrió un error desconocido.",
+            }
+          : null,
+      );
     }
   };
 

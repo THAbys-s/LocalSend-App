@@ -126,7 +126,11 @@ export default function App() {
         <section style={styles.centerPanel}>
           <DropZone onFileDrop={handleFileDrop} />
           {transfer && (
-            <TransferMonitor transfer={transfer} onCancel={cancelTransfer} />
+            <TransferMonitor
+              transfer={transfer}
+              onCancel={cancelTransfer}
+              onDismiss={cancelTransfer}
+            />
           )}
         </section>
 

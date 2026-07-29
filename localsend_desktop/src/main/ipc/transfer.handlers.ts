@@ -125,6 +125,18 @@ export function registerTransferHandlers(
             let lastTime = Date.now();
             let lastBytes = 0;
 
+            const REASON_MESSAGES: Record<string, string> = {
+              no_folder:
+                "El celular no tiene una carpeta de destino configurada.",
+              no_space:
+                "El celular no tiene espacio suficiente para recibir el archivo.",
+              permission_denied:
+                "El celular perdió el permiso de la carpeta elegida.",
+              write_error:
+                "Ocurrió un error al guardar el archivo en el celular.",
+              unknown: "El receptor no pudo guardar el archivo.",
+            };
+
             const client = net.createConnection(
               { host: targetIp, port: 53318 },
               () => {
@@ -170,7 +182,24 @@ export function registerTransferHandlers(
               },
             );
 
+            let receiverError: string | null = null;
+
+            client.on("data", (chunk: Buffer) => {
+              try {
+                const msg = JSON.parse(chunk.toString("utf8"));
+                if (msg.type === "error") {
+                  receiverError =
+                    REASON_MESSAGES[msg.reason] ?? REASON_MESSAGES.unknown;
+                }
+              } catch {}
+            });
+
             client.on("close", () => {
+              if (receiverError) {
+                console.log(`[IPC] Transferencia rechazada por el receptor: ${receiverError}`);
+                resolve({ success: false, error: receiverError });
+                return;
+              }
               console.log(`[IPC] Archivo enviado: ${fileName} -> ${targetIp}`);
               mainWindow.webContents.send(channels.transferProgress, {
                 fileName,

@@ -1,5 +1,5 @@
 export const UDP_PORT = 53317;
-export const HANDSHAKE_PORT = 53317; 
+export const HANDSHAKE_PORT = 53317;
 export const DEFAULT_TCP_PORT = 53318;
 export const BROADCAST_ADDR = "255.255.255.255";
 export const BEACON_INTERVAL_MS = 2000;
@@ -11,10 +11,9 @@ export const channels = {
   setConfig: "ipc-set-config",
   transferRequest: "transfer:request",
   transferRespond: "transfer:respond",
-  transferProgress: "transfer:progress", 
+  transferProgress: "transfer:progress",
   deviceFound: "device:found",
   deviceLost: "device:lost",
-  selectDownloadDir: 'ipc-select-download-dir',
-  getConfig: 'ipc-get-config',
+  selectDownloadDir: "ipc-select-download-dir",
+  getConfig: "ipc-get-config",
 };
-

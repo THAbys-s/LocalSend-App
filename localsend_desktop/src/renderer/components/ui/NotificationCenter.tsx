@@ -1,7 +1,7 @@
 interface Notification {
   id: string;
   message: string;
-  type: 'info' | 'success' | 'error';
+  type: "info" | "success" | "error";
 }
 
 interface Props {
@@ -12,14 +12,14 @@ export function NotificationCenter({ notifications }: Props) {
   return (
     <>
       <div style={styles.container}>
-        {notifications.map(notif => {
+        {notifications.map((notif) => {
           let notifStyle = styles.notification;
           let iconStyle = styles.icon;
 
-          if (notif.type === 'success') {
+          if (notif.type === "success") {
             notifStyle = { ...notifStyle, ...styles.notificationSuccess };
             iconStyle = { ...iconStyle, ...styles.iconSuccess };
-          } else if (notif.type === 'error') {
+          } else if (notif.type === "error") {
             notifStyle = { ...notifStyle, ...styles.notificationError };
             iconStyle = { ...iconStyle, ...styles.iconError };
           } else {
@@ -30,9 +30,9 @@ export function NotificationCenter({ notifications }: Props) {
           return (
             <div key={notif.id} style={notifStyle}>
               <span style={iconStyle}>
-                {notif.type === 'success' && '✓'}
-                {notif.type === 'error' && '✕'}
-                {notif.type === 'info' && 'ℹ'}
+                {notif.type === "success" && "✓"}
+                {notif.type === "error" && "✕"}
+                {notif.type === "info" && "i"}
               </span>
               <p style={styles.message}>{notif.message}</p>
             </div>

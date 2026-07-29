@@ -4,7 +4,7 @@ declare global {
       onDeviceFound: (cb: (device: DeviceInfo) => void) => void;
       onDeviceLost: (cb: (deviceId: string) => void) => void;
       onTransferRequest: (cb: (data: TransferRequestData) => void) => void;
-      onTransferProgress: (cb: (data: TransferProgressData) => void) => void; // ← agregado
+      onTransferProgress: (cb: (data: TransferProgressData) => void) => void;
       respondTransfer: (
         deviceId: string,
         accept: boolean,
@@ -69,6 +69,7 @@ export interface Transfer {
   totalBytes: number;
   speed: number;
   status: TransferStatus;
+  errorMessage?: string;
 }
 
 export interface TransferRequest {
