@@ -182,78 +182,80 @@ class TransferReceiverService {
       } | null = null;
       let fileHandle: any = null;
       let destFile: File | null = null;
+      socket.on("data", (chunk: Buffer) => {
+        if (headerParsed) {
+          try {
+            fileHandle.writeBytes(new Uint8Array(chunk));
+          } catch (err) {
+            console.error("[Receiver] Error escribiendo chunk:", err);
+            this._emitError({ reason: "write_error", fileName: header?.name });
+            socket.destroy();
+          }
+          return;
+        }
 
-      socket.on("data", async (chunk: Buffer) => {
-        try {
-          if (!headerParsed) {
-            headerBuffer = Buffer.concat([headerBuffer, chunk]);
+        headerBuffer = Buffer.concat([headerBuffer, chunk]);
+        const newlineIndex = headerBuffer.indexOf(0x0a);
+        if (newlineIndex === -1) return;
 
-            const newlineIndex = headerBuffer.indexOf(0x0a);
-            if (newlineIndex === -1) return;
+        const headerLine = headerBuffer
+          .subarray(0, newlineIndex)
+          .toString("utf8");
+        const rest = headerBuffer.subarray(newlineIndex + 1);
 
-            const headerLine = headerBuffer
-              .subarray(0, newlineIndex)
-              .toString("utf8");
-            const rest = headerBuffer.subarray(newlineIndex + 1);
+        // Pausamos el socket para evitar que el evento "data" nuevo puede aparecer antes de que termine el async.
+        socket.pause();
 
-            try {
-              header = JSON.parse(headerLine);
-            } catch {
-              console.error("[Receiver] Header inválido, cerrando conexión");
-              socket.destroy();
-              return;
-            }
-
-            if (!header?.deviceId || !this.accepted.has(header.deviceId)) {
-              console.warn("[Receiver] Transferencia no aceptada");
-              socket.destroy();
-              return;
-            }
-
-            if (Paths.availableDiskSpace < header.size) {
-              console.warn(
-                "[Receiver] Espacio insuficiente para recibir el archivo",
-              );
-              this._failTransfer(socket, "no_space", header.name);
-              return;
-            }
-
-            const dirUri = await getDownloadDirUri();
-            if (!dirUri) {
-              console.warn("[Receiver] No hay carpeta de destino configurada");
-              this._failTransfer(socket, "no_folder", header.name);
-              return;
-            }
-
-            try {
-              const dir = new Directory(dirUri);
-              const resolvedName = this._resolveCollision(dir, header.name);
-
-              destFile = dir.createFile(
-                resolvedName,
-                header.mimeType || "application/octet-stream",
-              );
-              fileHandle = destFile.open(FileMode.Append);
-            } catch (err) {
-              console.error("[Receiver] Error creando archivo destino:", err);
-              this._failTransfer(socket, "permission_denied", header.name);
-              return;
-            }
-
-            headerParsed = true;
-
-            if (rest.length > 0) {
-              fileHandle.writeBytes(new Uint8Array(rest));
-            }
+        (async () => {
+          try {
+            header = JSON.parse(headerLine);
+          } catch {
+            console.error("[Receiver] Header inválido, cerrando conexión");
+            socket.destroy();
             return;
           }
 
-          fileHandle.writeBytes(new Uint8Array(chunk));
-        } catch (err) {
-          console.error("[Receiver] Error escribiendo chunk:", err);
-          this._emitError({ reason: "write_error", fileName: header?.name });
-          socket.destroy();
-        }
+          if (!header?.deviceId || !this.accepted.has(header.deviceId)) {
+            console.warn("[Receiver] Transferencia no aceptada");
+            socket.destroy();
+            return;
+          }
+
+          if (Paths.availableDiskSpace < header.size) {
+            console.warn("[Receiver] Espacio insuficiente");
+            this._failTransfer(socket, "no_space", header.name);
+            return;
+          }
+
+          const dirUri = await getDownloadDirUri();
+          if (!dirUri) {
+            console.warn("[Receiver] No hay carpeta de destino configurada");
+            this._failTransfer(socket, "no_folder", header.name);
+            return;
+          }
+
+          try {
+            const dir = new Directory(dirUri);
+            const resolvedName = this._resolveCollision(dir, header.name);
+            destFile = dir.createFile(
+              resolvedName,
+              header.mimeType || "application/octet-stream",
+            );
+            fileHandle = destFile.open(FileMode.Append);
+          } catch (err) {
+            console.error("[Receiver] Error creando archivo destino:", err);
+            this._failTransfer(socket, "permission_denied", header.name);
+            return;
+          }
+
+          headerParsed = true; // recién ahora, con el fileHandle preparado, podemos marcar el header como parseado y empezar a escribir chunks.
+
+          if (rest.length > 0) {
+            fileHandle.writeBytes(new Uint8Array(rest));
+          }
+
+          socket.resume();
+        })();
       });
 
       socket.on("end", () => {
