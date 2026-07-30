@@ -148,8 +148,8 @@ export default function App() {
               </>
             ) : (
               <>
-                <h3 style={styles.statsCardTitle}>Estado</h3>
-                <p style={styles.statStatus}>Activo</p>
+                <h3 style={styles.statsCardTitle}>Transferencia</h3>
+                <p style={styles.statStatus}>Sin transferencia activa</p>
               </>
             )}
           </div>
