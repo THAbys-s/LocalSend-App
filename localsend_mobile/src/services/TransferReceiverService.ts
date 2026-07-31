@@ -182,15 +182,27 @@ class TransferReceiverService {
       } | null = null;
       let fileHandle: any = null;
       let destFile: File | null = null;
-      socket.on("data", (chunk: Buffer) => {
-        if (headerParsed) {
-          try {
-            fileHandle.writeBytes(new Uint8Array(chunk));
-          } catch (err) {
+      let writeQueue: Promise<void> = Promise.resolve();
+      let writeFailed = false;
+
+      const enqueueWrite = (bytes: Uint8Array) => {
+        writeQueue = writeQueue
+          .then(() => {
+            if (writeFailed) return;
+            return fileHandle.writeBytes(bytes);
+          })
+          .catch((err) => {
+            if (writeFailed) return;
+            writeFailed = true;
             console.error("[Receiver] Error escribiendo chunk:", err);
             this._emitError({ reason: "write_error", fileName: header?.name });
             socket.destroy();
-          }
+          });
+      };
+
+      socket.on("data", (chunk: Buffer) => {
+        if (headerParsed) {
+          enqueueWrite(new Uint8Array(chunk));
           return;
         }
 
@@ -203,7 +215,6 @@ class TransferReceiverService {
           .toString("utf8");
         const rest = headerBuffer.subarray(newlineIndex + 1);
 
-        // Pausamos el socket para evitar que el evento "data" nuevo puede aparecer antes de que termine el async.
         socket.pause();
 
         (async () => {
@@ -248,10 +259,10 @@ class TransferReceiverService {
             return;
           }
 
-          headerParsed = true; // recién ahora, con el fileHandle preparado, podemos marcar el header como parseado y empezar a escribir chunks.
+          headerParsed = true;
 
           if (rest.length > 0) {
-            fileHandle.writeBytes(new Uint8Array(rest));
+            enqueueWrite(new Uint8Array(rest));
           }
 
           socket.resume();
@@ -260,29 +271,34 @@ class TransferReceiverService {
 
       socket.on("end", () => {
         if (!header || !fileHandle) return;
+        const h = header;
 
-        try {
-          fileHandle.close();
-          console.log(
-            "[Receiver] Archivo recibido:",
-            header.name,
-            "->",
-            destFile?.uri,
-          );
-
-          this.accepted.delete(header.deviceId);
-          this.pending.delete(header.deviceId);
-        } catch (err) {
-          console.error("[Receiver] Error cerrando archivo:", err);
-          this._emitError({ reason: "write_error", fileName: header?.name });
-        }
+        writeQueue
+          .then(() => {
+            if (writeFailed) return;
+            fileHandle.close();
+            console.log(
+              "[Receiver] Archivo recibido:",
+              h.name,
+              "->",
+              destFile?.uri,
+            );
+            this.accepted.delete(h.deviceId);
+            this.pending.delete(h.deviceId);
+          })
+          .catch((err) => {
+            console.error("[Receiver] Error cerrando archivo:", err);
+            this._emitError({ reason: "write_error", fileName: h.name });
+          });
       });
 
       socket.on("error", (err: Error) => {
         console.error("[Receiver] Socket error:", err.message);
-        try {
-          fileHandle?.close();
-        } catch {}
+        writeQueue.finally(() => {
+          try {
+            fileHandle?.close();
+          } catch {}
+        });
       });
     });
 
