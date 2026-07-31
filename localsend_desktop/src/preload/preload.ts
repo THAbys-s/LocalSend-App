@@ -3,6 +3,7 @@ import type {
   DeviceInfo,
   TransferRequestData,
   SendFilePayload,
+  ServerStatusData,
 } from "../shared";
 
 contextBridge.exposeInMainWorld("electronAPI", {
@@ -14,6 +15,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("transfer:request", (_event, data) => cb(data)),
   onTransferProgress: (cb: (data: any) => void) =>
     ipcRenderer.on("transfer:progress", (_event, data) => cb(data)),
+  onServerStatus: (cb: (data: ServerStatusData) => void) =>
+    ipcRenderer.on("server:status", (_event, data) => cb(data)),
   respondTransfer: (deviceId: string, accept: boolean, reason?: string) =>
     ipcRenderer.invoke("transfer:respond", { deviceId, accept, reason }),
   removeAllListeners: (channel: string) =>
@@ -23,4 +26,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("ipc-send-file", payload),
   selectDownloadDir: () => ipcRenderer.invoke("ipc-select-download-dir"),
   getConfig: () => ipcRenderer.invoke("ipc-get-config"),
+  getServerStatus: () => ipcRenderer.invoke("ipc-get-server-status"),
 });

@@ -16,4 +16,6 @@ export const channels = {
   deviceLost: "device:lost",
   selectDownloadDir: "ipc-select-download-dir",
   getConfig: "ipc-get-config",
+  serverStatus: "server:status",
+  getServerStatus: "ipc-get-server-status",
 };

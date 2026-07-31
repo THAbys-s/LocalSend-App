@@ -36,7 +36,12 @@ function resolveCollision(dir: string, fileName: string): string {
   return destination;
 }
 
-export function createTcpService(port = 53318, wsService: WsTransferService) {
+export function createTcpService(
+  port = 53318,
+  wsService: WsTransferService,
+  onReady?: () => void,
+  onError?: (err: Error) => void,
+) {
   const server = net.createServer((socket) => {
     let headerBuffer = Buffer.alloc(0);
     let headerParsed = false;
@@ -113,10 +118,12 @@ export function createTcpService(port = 53318, wsService: WsTransferService) {
 
   server.on("error", (err) => {
     console.error("[TCP] Server error:", err.message);
+    onError?.(err);
   });
 
   server.listen(port, () => {
     console.log(`[TCP] Escuchando en ${port}`);
+    onReady?.();
   });
 
   return server;

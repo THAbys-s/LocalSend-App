@@ -2,8 +2,10 @@ import path from "path";
 import { app, BrowserWindow } from "electron";
 import { UdpDiscoveryService } from "./services/udp.service";
 import { WsTransferService } from "./services/ws.service";
+import { ServerStatusService } from "./services/server-status.service";
 import { registerIpcHandlers } from "./ipc";
 import { createTcpService } from "./services/tcp.service";
+import { channels } from "../shared/constants";
 import { DEFAULT_TCP_PORT } from "../shared/constants";
 
 const TCP_PORT = Number(process.argv[2] ?? DEFAULT_TCP_PORT);
@@ -15,6 +17,7 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 
 const udpService = new UdpDiscoveryService();
 const wsService = new WsTransferService(53317);
+const serverStatus = new ServerStatusService();
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): BrowserWindow {
@@ -41,12 +44,31 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
-  createTcpService(TCP_PORT, wsService);
+  mainWindow = createWindow();
+
+  serverStatus.onStatusChange((isActive, status) => {
+    mainWindow?.webContents.send(channels.serverStatus, { isActive, status });
+  });
+
+  udpService.onReady = () => serverStatus.setUdp(true);
+  udpService.onError = () => serverStatus.setUdp(false);
+
+  wsService.onReady = () => serverStatus.setWs(true);
+  wsService.onError = () => serverStatus.setWs(false);
+
+  createTcpService(
+    TCP_PORT,
+    wsService,
+    () => serverStatus.setTcp(true),
+    () => serverStatus.setTcp(false),
+  );
+
   udpService.start();
   wsService.start();
-  mainWindow = createWindow();
+
   registerIpcHandlers(udpService, wsService, mainWindow);
 });
+
 app.on("window-all-closed", () => {
   udpService.stop();
   wsService.stop();

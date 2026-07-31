@@ -21,6 +21,8 @@ declare global {
         deviceAlias: string;
         downloadDir: string | null;
       }>;
+      onServerStatus: (cb: (data: ServerStatusData) => void) => void;
+      getServerStatus: () => Promise<ServerStatusData>;
     };
   }
 }
@@ -114,4 +116,15 @@ export interface AppConfig {
   deviceId: string;
   deviceAlias: string;
   downloadDir?: string;
+}
+
+export interface ServicesStatus {
+  udp: boolean;
+  ws: boolean;
+  tcp: boolean;
+}
+
+export interface ServerStatusData {
+  isActive: boolean;
+  status: ServicesStatus;
 }

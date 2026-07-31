@@ -43,6 +43,8 @@ export class UdpDiscoveryService {
 
   onDeviceFound?: (device: DeviceInfo) => void;
   onDeviceLost?: (deviceId: string) => void;
+  onReady?: () => void;
+  onError?: (err: Error) => void;
 
   private myInfo: DeviceInfo;
 
@@ -63,6 +65,7 @@ export class UdpDiscoveryService {
 
     this.socket.on("error", (err) => {
       console.error("[UDP] Error en socket:", err.message);
+      this.onError?.(err);
     });
 
     this.socket.on("message", (msg, rinfo) => {
@@ -100,6 +103,7 @@ export class UdpDiscoveryService {
         `[UDP] Este dispositivo: ${this.myInfo.alias} | ${this.myInfo.ip} | ID: ${this.myInfo.id.slice(0, 8)}...`,
       );
       this.startBeacon();
+      this.onReady?.();
     });
   }
 

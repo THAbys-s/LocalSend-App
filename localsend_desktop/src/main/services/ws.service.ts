@@ -17,6 +17,9 @@ export class WsTransferService {
   private listeners = new Set<TransferRequestHandler>();
   private port: number;
 
+  onReady?: () => void;
+  onError?: (err: Error) => void;
+
   constructor(port: number = 53317) {
     this.port = port;
   }
@@ -27,7 +30,7 @@ export class WsTransferService {
       let buffer = Buffer.alloc(0);
 
       const timeout = setTimeout(() => {
-        console.warn( 
+        console.warn(
           "[Handshake] Cliente no envió mensaje en 10s, desconectando",
         );
         socket.destroy();
@@ -80,10 +83,12 @@ export class WsTransferService {
 
     this.server.on("error", (err) => {
       console.error("[Handshake] Server error:", err.message);
+      this.onError?.(err);
     });
 
     this.server.listen(this.port, () => {
       console.log(`[Handshake] Servidor escuchando en puerto ${this.port}`);
+      this.onReady?.();
     });
   }
 
@@ -125,6 +130,7 @@ export class WsTransferService {
       clearTimeout(transfer.timeout);
       this.acceptedTransfers.add(deviceId);
       setTimeout(() => this.acceptedTransfers.delete(deviceId), 60000);
+      this.pendingTransfers.delete(deviceId);
       transfer.socket.end();
     } catch (err) {
       console.error(`[Handshake] Error enviando accept a ${deviceId}:`, err);

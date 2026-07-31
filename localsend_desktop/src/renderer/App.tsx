@@ -9,6 +9,7 @@ import { useDiscovery } from "./hooks/useDiscovery";
 import { useTransfer } from "./hooks/useTransfer";
 import type { TransferRequestData, DeviceInfo } from "../shared";
 import { DownloadDirSelector } from "./components/ui/DownloadDirSelector";
+import { useServer } from "./hooks/useServer";
 
 export default function App() {
   const { devices } = useDiscovery();
@@ -22,6 +23,7 @@ export default function App() {
     null,
   );
   const [selectedDevice, setSelectedDevice] = useState<DeviceInfo | null>(null);
+  const { isActive } = useServer();
 
   useEffect(() => {
     if (!window.electronAPI) return;
@@ -109,7 +111,7 @@ export default function App() {
             <span style={styles.appIcon}>📤</span>
             LocalSend
           </h1>
-          <AvailabilityIndicator isActive={true} />
+          <AvailabilityIndicator isActive={isActive} />
         </div>
       </header>
 
