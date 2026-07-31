@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { configStore } from "../store/config.store";
 import type { WsTransferService } from "./ws.service";
+import { ServerStatusService } from "./server-status.service";
 
 interface TransferHeader {
   name: string;
@@ -37,10 +38,9 @@ function resolveCollision(dir: string, fileName: string): string {
 }
 
 export function createTcpService(
+  serverStatus: ServerStatusService,
   port = 53318,
   wsService: WsTransferService,
-  onReady?: () => void,
-  onError?: (err: Error) => void,
 ) {
   const server = net.createServer((socket) => {
     let headerBuffer = Buffer.alloc(0);
@@ -118,12 +118,17 @@ export function createTcpService(
 
   server.on("error", (err) => {
     console.error("[TCP] Server error:", err.message);
-    onError?.(err);
+    serverStatus.setTcp(false);
   });
 
   server.listen(port, () => {
     console.log(`[TCP] Escuchando en ${port}`);
-    onReady?.();
+
+    serverStatus.setTcp(true);
+  });
+
+  server.on("close", () => {
+    serverStatus.setTcp(false);
   });
 
   return server;

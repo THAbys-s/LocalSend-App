@@ -15,9 +15,11 @@ console.log("[Main] TCP_PORT resuelto:", TCP_PORT);
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
-const udpService = new UdpDiscoveryService();
-const wsService = new WsTransferService(53317);
 const serverStatus = new ServerStatusService();
+
+const udpService = new UdpDiscoveryService(serverStatus);
+
+const wsService = new WsTransferService(serverStatus, 53317);
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): BrowserWindow {
@@ -50,23 +52,12 @@ app.whenReady().then(() => {
     mainWindow?.webContents.send(channels.serverStatus, { isActive, status });
   });
 
-  udpService.onReady = () => serverStatus.setUdp(true);
-  udpService.onError = () => serverStatus.setUdp(false);
-
-  wsService.onReady = () => serverStatus.setWs(true);
-  wsService.onError = () => serverStatus.setWs(false);
-
-  createTcpService(
-    TCP_PORT,
-    wsService,
-    () => serverStatus.setTcp(true),
-    () => serverStatus.setTcp(false),
-  );
+  createTcpService(serverStatus, TCP_PORT, wsService);
 
   udpService.start();
   wsService.start();
 
-  registerIpcHandlers(udpService, wsService, mainWindow);
+  registerIpcHandlers(udpService, wsService, serverStatus, mainWindow);
 });
 
 app.on("window-all-closed", () => {

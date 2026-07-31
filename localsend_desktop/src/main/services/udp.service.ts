@@ -1,6 +1,7 @@
 import dgram from "dgram";
 import os from "os";
 import type { DeviceInfo, DeviceOS, BeaconPayload } from "../../shared";
+import { ServerStatusService } from "./server-status.service";
 import { configStore } from "../store/config.store";
 import {
   UDP_PORT,
@@ -41,6 +42,8 @@ export class UdpDiscoveryService {
   private deviceTimeouts = new Map<string, NodeJS.Timeout>();
   private devices = new Map<string, DeviceInfo>();
 
+  private readonly serverStatus: ServerStatusService;
+
   onDeviceFound?: (device: DeviceInfo) => void;
   onDeviceLost?: (deviceId: string) => void;
   onReady?: () => void;
@@ -48,7 +51,9 @@ export class UdpDiscoveryService {
 
   private myInfo: DeviceInfo;
 
-  constructor() {
+  constructor(serverStatus: ServerStatusService) {
+    this.serverStatus = serverStatus;
+
     this.myInfo = {
       id: configStore.get("deviceId"),
       alias: configStore.get("deviceAlias"),
@@ -65,6 +70,9 @@ export class UdpDiscoveryService {
 
     this.socket.on("error", (err) => {
       console.error("[UDP] Error en socket:", err.message);
+
+      this.serverStatus.setUdp(false);
+
       this.onError?.(err);
     });
 
@@ -98,6 +106,9 @@ export class UdpDiscoveryService {
     });
     this.socket.bind(UDP_PORT, () => {
       this.socket!.setBroadcast(true);
+
+      this.serverStatus.setUdp(true);
+
       console.log(`[UDP] Servidor escuchando en puerto ${UDP_PORT}`);
       console.log(
         `[UDP] Este dispositivo: ${this.myInfo.alias} | ${this.myInfo.ip} | ID: ${this.myInfo.id.slice(0, 8)}...`,
@@ -152,6 +163,8 @@ export class UdpDiscoveryService {
 
     this.socket?.close();
     this.socket = null;
+
+    this.serverStatus.setUdp(false);
 
     console.log("[UDP] Servicio detenido");
   }

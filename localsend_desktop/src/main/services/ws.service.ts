@@ -1,5 +1,6 @@
 import net from "net";
 import type { TransferRequestData } from "../../shared";
+import { ServerStatusService } from "./server-status.service";
 
 interface PendingTransfer {
   deviceId: string;
@@ -17,10 +18,13 @@ export class WsTransferService {
   private listeners = new Set<TransferRequestHandler>();
   private port: number;
 
+  private readonly serverStatus: ServerStatusService;
+
   onReady?: () => void;
   onError?: (err: Error) => void;
 
-  constructor(port: number = 53317) {
+  constructor(serverStatus: ServerStatusService, port: number = 53317) {
+    this.serverStatus = serverStatus;
     this.port = port;
   }
 
@@ -83,10 +87,15 @@ export class WsTransferService {
 
     this.server.on("error", (err) => {
       console.error("[Handshake] Server error:", err.message);
+
+      this.serverStatus.setWs(false);
+
       this.onError?.(err);
     });
 
     this.server.listen(this.port, () => {
+      this.serverStatus.setWs(true);
+
       console.log(`[Handshake] Servidor escuchando en puerto ${this.port}`);
       this.onReady?.();
     });
@@ -101,6 +110,8 @@ export class WsTransferService {
     this.acceptedTransfers.clear();
 
     this.server?.close(() => {
+      this.serverStatus.setWs(false);
+
       console.log("[Handshake] Servidor detenido");
     });
     this.server = null;
