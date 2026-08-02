@@ -93,7 +93,12 @@ class TransferService {
         : err.message === "Transferencia rechazada"
           ? "rejected"
           : "unknown";
-      this._emit({ ...this.current!, status: "error", progress: 0, errorKind: kind } as any);
+      this._emit({
+        ...this.current!,
+        status: "error",
+        progress: 0,
+        errorKind: kind,
+      } as any);
       throw err;
     } finally {
       try {
@@ -185,9 +190,11 @@ class TransferService {
           this._emit({ ...this.current!, status: "sending" });
           try {
             await this._stream(client, file, deviceId);
-            client.destroy();
-            this._emit({ ...this.current!, status: "success", progress: 1 });
-            resolve();
+            client.once("close", () => {
+              this._emit({ ...this.current!, status: "success", progress: 1 });
+              resolve();
+            });
+            client.end();
           } catch (err) {
             client.destroy();
             reject(err);
@@ -330,10 +337,15 @@ class TransferService {
   private _write(client: any, data: Buffer): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        client.write(data, (err: Error | null) => {
+        const ok = client.write(data, (err: Error | null) => {
           if (err) reject(err);
         });
-        resolve();
+
+        if (ok) {
+          resolve(); // Si el buffer no está lleno, resuelve el envio de inmediatamente.
+        } else {
+          client.once("drain", () => resolve()); // Si el buffer está lleno, espera a que se vacíe antes de resolver.
+        }
       } catch (err) {
         reject(err);
       }
