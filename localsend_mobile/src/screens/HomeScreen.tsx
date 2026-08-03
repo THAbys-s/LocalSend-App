@@ -54,7 +54,7 @@ export function HomeScreen() {
 
   const pickDocument = useCallback(async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      copyToCacheDirectory: true,
+      copyToCacheDirectory: false,
     });
     if (result.canceled) return;
 
