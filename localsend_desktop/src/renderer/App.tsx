@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { AvailabilityIndicator } from "./components/ui/AvailabilityIndicator";
-import { DropZone } from "./components/transfer/DropZone";
 import { DeviceList } from "./components/device/DeviceList";
 import { TransferMonitor } from "./components/transfer/TransferMonitor";
 import { NotificationCenter } from "./components/ui/NotificationCenter";
@@ -8,8 +7,11 @@ import { TransferConfirmDialog } from "./components/transfer/TransferConfirmDial
 import { useDiscovery } from "./hooks/useDiscovery";
 import { useTransfer } from "./hooks/useTransfer";
 import type { TransferRequestData, DeviceInfo } from "../shared";
+import type { FileToSend } from "../shared";
 import { DownloadDirSelector } from "./components/ui/DownloadDirSelector";
 import { useServer } from "./hooks/useServer";
+import { DropZone } from "./components/transfer/DropZone";
+import { SendPanel } from "./components/transfer/SendPanel";
 
 export default function App() {
   const { devices } = useDiscovery();
@@ -23,6 +25,7 @@ export default function App() {
     null,
   );
   const [selectedDevice, setSelectedDevice] = useState<DeviceInfo | null>(null);
+  const [selectedFile, setSelectedFile] = useState<FileToSend | null>(null);
   const { isActive } = useServer();
 
   useEffect(() => {
@@ -39,15 +42,55 @@ export default function App() {
     };
   }, []);
 
-  const handleFileDrop = async (files: File[]) => {
+  const handleFileDrop = (files: File[]) => {
     if (files.length === 0) return;
-    if (!selectedDevice) {
-      addNotification("Seleccioná un dispositivo antes de enviar", "error");
+
+    const file = files[0];
+    const filePath = window.electronAPI.getPathForFile(file);
+
+    if (!filePath) {
+      addNotification("No se pudo acceder al archivo arrastrado", "error");
       return;
     }
-    const file = files[0];
-    addNotification(`Enviando: ${file.name} a ${selectedDevice.alias}`, "info");
-    await startTransfer(file, selectedDevice);
+
+    setSelectedFile({
+      path: filePath,
+      name: file.name,
+      size: file.size,
+    });
+
+    addNotification(`Archivo seleccionado: ${file.name}`, "success");
+  };
+
+  const handlePickFile = async () => {
+    const result = await window.electronAPI.selectFileToSend();
+
+    if (result.canceled || !result.file) return;
+
+    setSelectedFile(result.file);
+
+    addNotification(`Archivo seleccionado: ${result.file.name}`, "success");
+  };
+
+  const handleSend = async () => {
+    if (!selectedFile) {
+      addNotification("Seleccioná un archivo", "error");
+      return;
+    }
+
+    if (!selectedDevice) {
+      addNotification("Seleccioná un dispositivo", "error");
+      return;
+    }
+
+    addNotification(
+      `Enviando ${selectedFile.name} a ${selectedDevice.alias}`,
+      "info",
+    );
+
+    await startTransfer(selectedFile, selectedDevice);
+
+    setSelectedFile(null);
   };
 
   const handleAcceptTransfer = async () => {
@@ -126,7 +169,8 @@ export default function App() {
         </aside>
 
         <section style={styles.centerPanel}>
-          <DropZone onFileDrop={handleFileDrop} />
+          <DropZone onFileDrop={handleFileDrop} onPickFile={handlePickFile} />
+
           {transfer && (
             <TransferMonitor
               transfer={transfer}
@@ -137,24 +181,12 @@ export default function App() {
         </section>
 
         <aside style={styles.rightPanel}>
-          <aside style={styles.rightPanel}>
-            <DownloadDirSelector />
-          </aside>
-          <div style={styles.statsCard}>
-            {transfer ? (
-              <>
-                <h3 style={styles.statsCardTitle}>Transferencia</h3>
-                <p style={styles.statNumber}>
-                  {(transfer.progress * 100).toFixed(0)}%
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 style={styles.statsCardTitle}>Transferencia</h3>
-                <p style={styles.statStatus}>Sin transferencia activa</p>
-              </>
-            )}
-          </div>
+          <DownloadDirSelector />
+          <SendPanel
+            selectedFile={selectedFile}
+            selectedDevice={selectedDevice}
+            onSend={handleSend}
+          />
         </aside>
       </main>
 

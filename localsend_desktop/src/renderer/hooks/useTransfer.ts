@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import type { Transfer, DeviceInfo } from "../../shared";
+import type { Transfer, DeviceInfo, FileToSend } from "../../shared";
 
 interface UseTransferResult {
   transfer: Transfer | null;
-  startTransfer: (file: File, device: DeviceInfo) => Promise<void>;
+  startTransfer: (file: FileToSend, device: DeviceInfo) => Promise<void>;
   cancelTransfer: () => void;
 }
 
@@ -33,7 +33,7 @@ export function useTransfer(): UseTransferResult {
     };
   }, []);
 
-  const startTransfer = async (file: File, device: DeviceInfo) => {
+  const startTransfer = async (file: FileToSend, device: DeviceInfo) => {
     fileNameRef.current = file.name;
 
     setTransfer({
@@ -45,22 +45,8 @@ export function useTransfer(): UseTransferResult {
       status: "connecting",
     });
 
-    const filePath = window.electronAPI.getPathForFile(file);
-    if (!filePath) {
-      setTransfer((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "error",
-              errorMessage: "No se pudo acceder al archivo seleccionado.",
-            }
-          : null,
-      );
-      return;
-    }
-
     const result = await window.electronAPI.sendFile({
-      filePath,
+      filePath: file.path,
       targetIp: device.ip,
       deviceId: device.id,
     });

@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
+import { channels } from "../shared/constants";
 import type {
   DeviceInfo,
   TransferRequestData,
@@ -24,7 +25,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   sendFile: (payload: SendFilePayload) =>
     ipcRenderer.invoke("ipc-send-file", payload),
-  selectDownloadDir: () => ipcRenderer.invoke("ipc-select-download-dir"),
-  getConfig: () => ipcRenderer.invoke("ipc-get-config"),
-  getServerStatus: () => ipcRenderer.invoke("ipc-get-server-status"),
+  selectFileToSend: () => ipcRenderer.invoke(channels.selectFileToSend),
+  selectDownloadDir: () => ipcRenderer.invoke(channels.selectDownloadDir),
+  getConfig: () => ipcRenderer.invoke(channels.getConfig),
+  getServerStatus: () => ipcRenderer.invoke(channels.getServerStatus),
+  getDevices: () => ipcRenderer.invoke(channels.getDevices),
 });

@@ -11,18 +11,23 @@ declare global {
         reason?: string,
       ) => Promise<{ success: boolean }>;
       removeAllListeners: (channel: string) => void;
-      getPathForFile: (file: File) => string;
       sendFile: (
         payload: SendFilePayload,
       ) => Promise<{ success: boolean; error?: string }>;
       selectDownloadDir: () => Promise<{ success: boolean; path?: string }>;
+      selectFileToSend: () => Promise<
+        | { canceled: true; file?: undefined }
+        | { canceled: false; file: FileToSend }
+      >;
+      onServerStatus: (cb: (data: ServerStatusData) => void) => void;
+      getServerStatus: () => Promise<ServerStatusData>;
+      getPathForFile: (file: File) => string;
+      getDevices: () => Promise<DeviceInfo[]>;
       getConfig: () => Promise<{
         deviceId: string;
         deviceAlias: string;
         downloadDir: string | null;
       }>;
-      onServerStatus: (cb: (data: ServerStatusData) => void) => void;
-      getServerStatus: () => Promise<ServerStatusData>;
     };
   }
 }
@@ -62,6 +67,12 @@ export interface FileMetadata {
   name: string;
   size: number;
   type: string;
+}
+
+export interface FileToSend {
+  path: string;
+  name: string;
+  size: number;
 }
 
 export interface Transfer {

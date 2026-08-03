@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from "electron";
+import { ipcMain, BrowserWindow, dialog } from "electron";
 import fs from "fs";
 import path from "path";
 import net from "net";
@@ -72,6 +72,28 @@ export function registerTransferHandlers(
   wsService: WsTransferService,
   mainWindow: BrowserWindow,
 ) {
+  ipcMain.handle(channels.selectFileToSend, async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ["openFile"],
+      title: "Elegir archivo a enviar",
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { canceled: true };
+    }
+
+    const filePath = result.filePaths[0];
+    const stats = fs.statSync(filePath);
+
+    return {
+      canceled: false,
+      file: {
+        path: filePath,
+        name: path.basename(filePath),
+        size: stats.size,
+      },
+    };
+  });
   wsService.on("transfer-request", (data) => {
     console.log("[IPC] Enviando transfer-request al renderer");
     mainWindow.webContents.send(channels.transferRequest, {
@@ -196,7 +218,9 @@ export function registerTransferHandlers(
 
             client.on("close", () => {
               if (receiverError) {
-                console.log(`[IPC] Transferencia rechazada por el receptor: ${receiverError}`);
+                console.log(
+                  `[IPC] Transferencia rechazada por el receptor: ${receiverError}`,
+                );
                 resolve({ success: false, error: receiverError });
                 return;
               }

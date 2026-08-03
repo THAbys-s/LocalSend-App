@@ -18,4 +18,5 @@ export const channels = {
   getConfig: "ipc-get-config",
   serverStatus: "server:status",
   getServerStatus: "ipc-get-server-status",
+  selectFileToSend: "ipc-select-file-to-send",
 };
