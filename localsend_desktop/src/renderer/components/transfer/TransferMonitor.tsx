@@ -8,11 +8,12 @@ interface Props {
   onDismiss: () => void;
 }
 
-export function TransferMonitor({ transfer, onCancel, onDismiss }: Props) {
+export function TransferMonitor({ transfer, onDismiss }: Props) {
   const [cancelHover, setCancelHover] = useState(false);
 
   const isComplete = transfer.status === "complete";
   const isError = transfer.status === "error";
+  const isPaused = transfer.status === "paused";
 
   const percentComplete = (transfer.progress * 100).toFixed(1);
   const timeRemaining =
@@ -31,8 +32,11 @@ export function TransferMonitor({ transfer, onCancel, onDismiss }: Props) {
       <div style={styles.header}>
         <h3 style={styles.title}>
           {isComplete && "✓ "}
+          {isError && "⚠ "}
+          {isPaused && "⏸ "}
           {transfer.fileName}
         </h3>
+        <p style={styles.statusText}>{getStatusText(transfer)}</p>
         {(isComplete || isError) && (
           <button
             style={{
@@ -83,14 +87,55 @@ export function TransferMonitor({ transfer, onCancel, onDismiss }: Props) {
 
       {isError && (
         <p style={styles.error}>
-          +{" "}
+          {" "}
           {transfer.errorMessage ??
-            "La transferencia falló. Revisá tu conexión."}
-          +{" "}
+            "La transferencia falló. Revisá tu conexión."}{" "}
         </p>
       )}
     </div>
   );
+}
+
+function getStatusText(transfer: Transfer) {
+  switch (transfer.status) {
+    case "connecting":
+      return "Conectando con el dispositivo...";
+
+    case "transferring":
+      return "Enviando archivo...";
+
+    case "waiting":
+      return "Esperando respuesta...";
+
+    case "paused":
+      return "Transferencia pausada.";
+
+    case "complete":
+      return "Transferencia completada.";
+
+    case "error":
+      switch (transfer.errorCode) {
+        case "connection_lost":
+          return transfer.resumable
+            ? "Conexión perdida. Puede reanudarse."
+            : "Conexión perdida. Debe iniciarse nuevamente.";
+
+        case "disk_full":
+          return "No hay espacio suficiente.";
+
+        case "permission_denied":
+          return "No hay permisos para guardar.";
+
+        case "timeout":
+          return "La conexión tardó demasiado.";
+
+        default:
+          return transfer.errorMessage ?? "La transferencia falló.";
+      }
+
+    default:
+      return "";
+  }
 }
 
 const styles = {
@@ -194,5 +239,10 @@ const styles = {
     padding: "12px",
     backgroundColor: "rgba(239, 68, 68, 0.1)",
     borderRadius: "12px",
+  },
+  statusText: {
+    fontSize: "14px",
+    color: "#6B7280",
+    marginBottom: "12px",
   },
 };

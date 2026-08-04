@@ -186,6 +186,8 @@ export default function App() {
             selectedFile={selectedFile}
             selectedDevice={selectedDevice}
             onSend={handleSend}
+            onCancel={cancelTransfer}
+            isTransferring={!!transfer}
           />
         </aside>
       </main>

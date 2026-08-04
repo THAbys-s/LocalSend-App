@@ -82,7 +82,9 @@ export interface Transfer {
   totalBytes: number;
   speed: number;
   status: TransferStatus;
+  errorCode?: TransferError;
   errorMessage?: string;
+  resumable?: boolean;
 }
 
 export interface TransferRequest {
@@ -113,15 +115,38 @@ export interface TransferProgressData {
   totalBytes: number;
   progress: number;
   speed?: number;
-  done?: boolean;
+  status: TransferStatus;
+  error?: string;
+  errorCode?: TransferError;
+  resumable?: boolean;
+}
+
+export interface TransferProgress {
+  fileName: string;
+  bytesSent: number;
+  totalBytes: number;
+  progress: number;
+  speed?: number;
+  status: TransferStatus;
   error?: string;
 }
 
 export type TransferStatus =
   | "connecting"
   | "transferring"
+  | "paused"
+  | "waiting"
   | "complete"
+  | "cancelled"
   | "error";
+
+type TransferError =
+  | "connection_lost"
+  | "timeout"
+  | "receiver_cancelled"
+  | "sender_cancelled"
+  | "disk_full"
+  | "permission_denied";
 
 export interface AppConfig {
   deviceId: string;

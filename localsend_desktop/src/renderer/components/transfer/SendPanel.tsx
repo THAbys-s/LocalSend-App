@@ -5,12 +5,16 @@ interface SendPanelProps {
   selectedFile: FileToSend | null;
   selectedDevice: DeviceInfo | null;
   onSend: () => void;
+  onCancel: () => void;
+  isTransferring: boolean;
 }
 
 export function SendPanel({
   selectedFile,
   selectedDevice,
   onSend,
+  onCancel,
+  isTransferring,
 }: SendPanelProps) {
   return (
     <div style={styles.selectionCard}>
@@ -33,13 +37,14 @@ export function SendPanel({
       <button
         style={{
           ...styles.sendButton,
+          backgroundColor: isTransferring ? "#EF4444" : "#00C896",
           opacity: selectedFile && selectedDevice ? 1 : 0.5,
           cursor: selectedFile && selectedDevice ? "pointer" : "not-allowed",
         }}
         disabled={!selectedFile || !selectedDevice}
-        onClick={onSend}
+        onClick={isTransferring ? onCancel : onSend}
       >
-        Enviar
+        {isTransferring ? "Cancelar" : "Enviar"}
       </button>
     </div>
   );

@@ -192,6 +192,7 @@ export function registerTransferHandlers(
                       totalBytes,
                       progress: bytesSent / totalBytes,
                       speed,
+                      status: "transferring",
                     });
                   });
 
@@ -231,7 +232,7 @@ export function registerTransferHandlers(
                 totalBytes,
                 progress: 1,
                 speed: 0,
-                done: true,
+                status: "complete",
               });
               resolve({ success: true });
             });
