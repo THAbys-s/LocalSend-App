@@ -19,10 +19,15 @@ export function useReceiverErrors() {
   useEffect(() => {
     const unsub = transferReceiverService.addErrorListener((err) => {
       setToast(MESSAGES[err.reason] ?? MESSAGES.unknown);
-      setTimeout(() => setToast(null), 4000);
     });
     return unsub;
   }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   return toast;
 }
