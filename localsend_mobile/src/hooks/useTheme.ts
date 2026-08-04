@@ -1,9 +1,12 @@
-import { useColorScheme } from 'react-native';
-import { Colors, Typography, Spacing, Radius } from '../theme';
+import { useColorScheme } from "react-native";
+import { Colors, Typography, Spacing, Radius } from "../theme";
+import { useThemeMode } from "../context/ThemeContext";
 
 export function useTheme() {
-  const scheme = useColorScheme();
-  const isDark  = scheme === 'dark';
+  const systemScheme = useColorScheme();
+  const { mode } = useThemeMode();
+  const scheme = mode === "system" ? systemScheme : mode;
+  const isDark = scheme === "dark";
   const palette = isDark ? Colors.dark : Colors.light;
 
   return {

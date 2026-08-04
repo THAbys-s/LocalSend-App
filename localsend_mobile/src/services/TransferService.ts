@@ -41,7 +41,7 @@ export type TransferErrorKind = "network" | "rejected" | "unknown";
 type ProgressListener = (p: TransferProgress) => void;
 
 class TransferService {
-  private socket: any = null; // ← antes: private ws: WebSocket | null, ahora es un TcpSocket
+  private socket: any = null;
   private listeners = new Set<ProgressListener>();
   private current: TransferProgress | null = null;
   private cancelled = false;
@@ -118,7 +118,7 @@ class TransferService {
       const socket = TcpSocket.createConnection(
         { host: ip, port: WS_PORT },
         () => {
-          this._emit({ ...this.current!, status: "handshaking" });
+          this.update({ status: "handshaking" });
 
           const message =
             JSON.stringify({
@@ -139,24 +139,23 @@ class TransferService {
         socket.destroy();
         reject(new Error("Timeout de conexión"));
       }, 8000);
-
+      let finished = false;
       socket.on("data", (chunk: string | Buffer) => {
-        const bufChunk =
-          typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk;
-        buffer = Buffer.concat([buffer, bufChunk]);
-        const newlineIndex = buffer.indexOf(0x0a);
-        if (newlineIndex === -1) return;
+        const { line, buffer: next } = this.readJsonLine(buffer, chunk);
+        buffer = next;
+        if (!line) return;
 
         clearTimeout(timeout);
-        const line = buffer.subarray(0, newlineIndex).toString("utf8");
 
         try {
           const msg = JSON.parse(line);
           if (msg.type === "accept") {
+            finished = true;
             resolve();
           } else if (msg.type === "reject") {
-            this._emit({ ...this.current!, status: "rejected" });
-            reject(new Error(msg.message ?? "Transferencia rechazada"));
+            this.update({ status: "rejected" });
+            finished = true;
+            reject(new Error(this.getReceiverError(msg.message)));
           } else {
             reject(new Error(msg.message ?? "Error del servidor"));
           }
@@ -174,6 +173,10 @@ class TransferService {
 
       socket.on("close", () => {
         clearTimeout(timeout);
+        if (!finished) {
+          finished = true;
+          reject(new Error("Cancelado"));
+        }
       });
     });
   }
@@ -210,33 +213,18 @@ class TransferService {
       );
 
       client.on("data", (chunk: string | Buffer) => {
-        const bufChunk =
-          typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk;
-        responseBuffer = Buffer.concat([responseBuffer, bufChunk]);
-        const newlineIndex = responseBuffer.indexOf(0x0a);
-        if (newlineIndex === -1) return;
+        const { line, buffer: next } = this.readJsonLine(responseBuffer, chunk);
+        responseBuffer = next;
+        if (!line) return;
 
-        const line = responseBuffer.subarray(0, newlineIndex).toString("utf8");
         try {
           const msg = JSON.parse(line);
           if (msg.type === "error") {
-            receiverError =
-              msg.reason === "no_folder"
-                ? "El receptor no tiene una carpeta de destino configurada."
-                : msg.reason === "no_space"
-                  ? "El receptor no tiene espacio suficiente para recibir el archivo."
-                  : msg.reason === "permission_denied"
-                    ? "El receptor perdió el permiso de la carpeta elegida."
-                    : msg.reason === "write_error"
-                      ? "Ocurrió un error al guardar el archivo en el receptor."
-                      : (msg.message ??
-                        "El receptor no pudo recibir el archivo.");
+            receiverError = this.getReceiverError(msg.reason ?? msg.message);
             if (!receiverError) return;
             reject(new Error(receiverError));
           }
-        } catch {
-          // Ignore non-JSON responses.
-        }
+        } catch {}
       });
 
       client.on("error", (e: Error) => reject(new Error(`TCP: ${e.message}`)));
@@ -387,6 +375,42 @@ class TransferService {
         reject(err);
       }
     });
+  }
+  private toBuffer(chunk: string | Buffer): Buffer {
+    return typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk;
+  }
+
+  private readJsonLine(
+    buffer: Buffer,
+    chunk: string | Buffer,
+  ): { line?: string; buffer: Buffer } {
+    const bufChunk = this.toBuffer(chunk);
+    let combined = Buffer.concat([buffer, bufChunk]);
+    const newlineIndex = combined.indexOf(0x0a);
+    if (newlineIndex === -1) return { buffer: combined };
+    const line = combined.subarray(0, newlineIndex).toString("utf8");
+    const rest = combined.subarray(newlineIndex + 1);
+    return { line, buffer: rest };
+  }
+
+  private getReceiverError(reasonOrMessage?: string): string {
+    if (!reasonOrMessage) return "El receptor no pudo recibir el archivo.";
+    switch (reasonOrMessage) {
+      case "no_folder":
+        return "El receptor no tiene una carpeta de destino configurada.";
+      case "no_space":
+        return "El receptor no tiene espacio suficiente para recibir el archivo.";
+      case "permission_denied":
+        return "El receptor perdió el permiso de la carpeta elegida.";
+      case "write_error":
+        return "Ocurrió un error al guardar el archivo en el receptor.";
+      default:
+        return reasonOrMessage;
+    }
+  }
+
+  private update(partial: Partial<TransferProgress> & any): void {
+    this._emit({ ...this.current!, ...partial } as TransferProgress);
   }
   private _emit(state: TransferProgress): void {
     this.current = state;

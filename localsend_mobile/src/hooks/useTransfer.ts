@@ -4,7 +4,12 @@ import {
   TransferProgress,
   FileToSend,
 } from "../services/TransferService";
-import { hapticSuccess, hapticError, hapticTap } from "../utils/haptics";
+import {
+  hapticSuccess,
+  hapticError,
+  hapticTap,
+  hapticMedium,
+} from "../utils/haptics";
 import { DiscoveredDevice } from "../services/DiscoveryService";
 
 export interface UseTransferResult {
@@ -25,6 +30,10 @@ export function useTransfer(): UseTransferResult {
       switch (p.status) {
         case "connecting":
           hapticTap();
+          break;
+        case "handshaking":
+          // pequeño feedback al comenzar la negociación
+          hapticMedium();
           break;
         case "success":
           hapticSuccess();

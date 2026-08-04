@@ -23,8 +23,12 @@ export function useTransfer(): UseTransferResult {
         bytesSent: data.bytesSent,
         totalBytes: data.totalBytes,
         speed: data.speed ?? 0,
-        status: data.error ? "error" : data.done ? "complete" : "transferring",
+
+        status: data.status,
+
         errorMessage: data.error ?? undefined,
+        errorCode: data.errorCode,
+        resumable: data.resumable,
       });
     });
 

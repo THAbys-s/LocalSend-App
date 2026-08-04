@@ -6,6 +6,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  AppState,
+  AppStateStatus,
+  Animated,
 } from "react-native";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,13 +19,19 @@ import { hapticMedium, hapticTap } from "../utils/haptics";
 import { useTheme } from "../hooks/useTheme";
 import { useDiscovery } from "../hooks/useDiscovery";
 import { useTransfer } from "../hooks/useTransfer";
+import { useThemeMode } from "../context/ThemeContext";
+import { SunIcon } from "../components/icons/SunIcon";
+import { MoonIcon } from "../components/icons/MoonIcon";
 import { RadarAnimation } from "../components/RadarAnimation";
 import { DeviceCard } from "../components/DeviceCard";
 import { TransferProgressSheet } from "../components/TransferProgressSheet";
 import { ErrorToast } from "../components/ErrorToast";
 import { DiscoveredDevice } from "../services/DiscoveryService";
 import { FileToSend } from "../services/TransferService";
-import { useForegroundService } from "../hooks/useForegroundService";
+import {
+  useForegroundService,
+  isForegroundRunning,
+} from "../hooks/useForegroundService";
 import { useIncomingTransfer } from "../hooks/useIncomingTransfer";
 import { useReceiverErrors } from "../hooks/useReceiverErrors";
 import { TransferConfirmDialog } from "../components/TransferConfirmDialog";
@@ -36,9 +45,55 @@ const SCAN_STATUS_LABEL: Record<string, string> = {
   error: "Error de red",
 };
 
+function ThemeToggleButton() {
+  const { mode, toggle } = useThemeMode();
+  const { colors } = useTheme();
+  const animation = useState(() => new Animated.Value(1))[0];
+
+  const nextMode =
+    mode === "system" ? "dark" : mode === "dark" ? "light" : "system";
+
+  const onPress = () => {
+    animation.setValue(0);
+    toggle();
+    Animated.timing(animation, {
+      toValue: 1,
+      duration: 280,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const translateY = animation.interpolate({
+    inputRange: [0, 1],
+    outputRange: nextMode === "dark" ? [-10, 0] : [10, 0],
+  });
+
+  const scale = animation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.8, 1],
+  });
+
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.refreshBtn}>
+      <Animated.View
+        style={{
+          opacity: animation,
+          transform: [{ translateY }, { scale }],
+        }}
+      >
+        {nextMode === "dark" ? (
+          <MoonIcon size={24} color={colors.primary} />
+        ) : (
+          <SunIcon size={24} color={colors.primary} />
+        )}
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
 export function HomeScreen() {
   const { colors, t, s, r } = useTheme();
-  const { devices, status, error, start, stop, ping } = useDiscovery();
+  const { devices, status, error, start, stop } = useDiscovery();
   const { progress, send, cancel, reset, isSending } = useTransfer();
   const [selectedFile, setSelectedFile] = useState<FileToSend | null>(null);
   const [selectedDevice, setSelectedDevice] = useState<DiscoveredDevice | null>(
@@ -55,6 +110,24 @@ export function HomeScreen() {
     start();
     return () => stop();
   }, []);
+
+  // Handle interruptions (calls, backgrounding): cancel active transfer but keep selection
+  useEffect(() => {
+    const onChange = (next: AppStateStatus) => {
+      if (next !== "active" && isSending) {
+        if (!isForegroundRunning()) {
+          cancel();
+          setToastMessage(
+            "Transferencia interrumpida. Volvé a intentar cuando estés listo.",
+          );
+        } else {
+          setToastMessage("Transferencia continuará en segundo plano.");
+        }
+      }
+    };
+    const sub = AppState.addEventListener("change", onChange);
+    return () => sub.remove();
+  }, [isSending, cancel]);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -185,11 +258,7 @@ export function HomeScreen() {
                 ⚙
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={ping} style={styles.refreshBtn}>
-              <Text style={[styles.refreshIcon, { color: colors.primary }]}>
-                ↻
-              </Text>
-            </TouchableOpacity>
+            <ThemeToggleButton />
           </View>
         </View>
 

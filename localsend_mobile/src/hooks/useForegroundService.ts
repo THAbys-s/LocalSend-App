@@ -4,6 +4,12 @@ import notifee, { AndroidImportance } from "@notifee/react-native";
 const CHANNEL_ID = "localsend-transfer";
 const NOTIFICATION_ID = "transfer-fg";
 
+let foregroundRunning = false;
+
+export function isForegroundRunning() {
+  return foregroundRunning;
+}
+
 export function useForegroundService(isActive: boolean, mensaje: string) {
   const runningRef = useRef(false);
 
@@ -40,6 +46,7 @@ export function useForegroundService(isActive: boolean, mensaje: string) {
       });
 
       runningRef.current = true;
+      foregroundRunning = true;
     } catch (err) {
       console.warn("[ForegroundService] Error al iniciar:", err);
     }
@@ -53,6 +60,7 @@ export function useForegroundService(isActive: boolean, mensaje: string) {
       console.warn("[ForegroundService] Error al detener:", err);
     } finally {
       runningRef.current = false;
+      foregroundRunning = false;
     }
   }
 }
