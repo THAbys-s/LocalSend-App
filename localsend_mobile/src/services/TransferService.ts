@@ -156,7 +156,7 @@ class TransferService {
             resolve();
           } else if (msg.type === "reject") {
             this._emit({ ...this.current!, status: "rejected" });
-            reject(new Error("Transferencia rechazada"));
+            reject(new Error(msg.message ?? "Transferencia rechazada"));
           } else {
             reject(new Error(msg.message ?? "Error del servidor"));
           }
@@ -184,6 +184,9 @@ class TransferService {
     deviceId: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
+      let receiverError: string | null = null;
+      let responseBuffer = Buffer.alloc(0);
+
       const client = TcpSocket.createConnection(
         { host: ip, port: TCP_PORT },
         async () => {
@@ -191,6 +194,10 @@ class TransferService {
           try {
             await this._stream(client, file, deviceId);
             client.once("close", () => {
+              if (receiverError) {
+                reject(new Error(receiverError));
+                return;
+              }
               this._emit({ ...this.current!, status: "success", progress: 1 });
               resolve();
             });
@@ -201,6 +208,36 @@ class TransferService {
           }
         },
       );
+
+      client.on("data", (chunk: string | Buffer) => {
+        const bufChunk =
+          typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk;
+        responseBuffer = Buffer.concat([responseBuffer, bufChunk]);
+        const newlineIndex = responseBuffer.indexOf(0x0a);
+        if (newlineIndex === -1) return;
+
+        const line = responseBuffer.subarray(0, newlineIndex).toString("utf8");
+        try {
+          const msg = JSON.parse(line);
+          if (msg.type === "error") {
+            receiverError =
+              msg.reason === "no_folder"
+                ? "El receptor no tiene una carpeta de destino configurada."
+                : msg.reason === "no_space"
+                  ? "El receptor no tiene espacio suficiente para recibir el archivo."
+                  : msg.reason === "permission_denied"
+                    ? "El receptor perdió el permiso de la carpeta elegida."
+                    : msg.reason === "write_error"
+                      ? "Ocurrió un error al guardar el archivo en el receptor."
+                      : (msg.message ??
+                        "El receptor no pudo recibir el archivo.");
+            if (!receiverError) return;
+            reject(new Error(receiverError));
+          }
+        } catch {
+          // Ignore non-JSON responses.
+        }
+      });
 
       client.on("error", (e: Error) => reject(new Error(`TCP: ${e.message}`)));
       client.setTimeout(30000);

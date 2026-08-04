@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import * as Haptics from "expo-haptics";
 import {
   transferService,
   TransferProgress,
   FileToSend,
 } from "../services/TransferService";
+import { hapticSuccess, hapticError, hapticTap } from "../utils/haptics";
 import { DiscoveredDevice } from "../services/DiscoveryService";
 
 export interface UseTransferResult {
@@ -24,14 +24,14 @@ export function useTransfer(): UseTransferResult {
 
       switch (p.status) {
         case "connecting":
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          hapticTap();
           break;
         case "success":
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          hapticSuccess();
           break;
         case "error":
         case "rejected":
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          hapticError();
           break;
       }
     });

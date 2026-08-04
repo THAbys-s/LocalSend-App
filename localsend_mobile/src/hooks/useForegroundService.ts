@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import notifee, { AndroidImportance } from "react-native-notify-kit";
+import notifee, { AndroidImportance } from "@notifee/react-native";
 
 const CHANNEL_ID = "localsend-transfer";
 const NOTIFICATION_ID = "transfer-fg";

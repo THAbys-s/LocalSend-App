@@ -1,6 +1,6 @@
 import { registerRootComponent } from "expo";
-import notifee, { AndroidImportance } from "react-native-notify-kit";
 import App from "./App";
+import notifee from "@notifee/react-native";
 
 notifee.registerForegroundService(() => {
   return new Promise(() => {});

@@ -11,7 +11,7 @@ import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import * as Haptics from "expo-haptics";
+import { hapticMedium, hapticTap } from "../utils/haptics";
 
 import { useTheme } from "../hooks/useTheme";
 import { useDiscovery } from "../hooks/useDiscovery";
@@ -19,11 +19,14 @@ import { useTransfer } from "../hooks/useTransfer";
 import { RadarAnimation } from "../components/RadarAnimation";
 import { DeviceCard } from "../components/DeviceCard";
 import { TransferProgressSheet } from "../components/TransferProgressSheet";
+import { ErrorToast } from "../components/ErrorToast";
 import { DiscoveredDevice } from "../services/DiscoveryService";
 import { FileToSend } from "../services/TransferService";
 import { useForegroundService } from "../hooks/useForegroundService";
 import { useIncomingTransfer } from "../hooks/useIncomingTransfer";
+import { useReceiverErrors } from "../hooks/useReceiverErrors";
 import { TransferConfirmDialog } from "../components/TransferConfirmDialog";
+import { getDownloadDirUri } from "../utils/downloadDir";
 
 const SCAN_STATUS_LABEL: Record<string, string> = {
   idle: "Toca para escanear",
@@ -46,11 +49,18 @@ export function HomeScreen() {
   >();
 
   const { incoming, accept, reject } = useIncomingTransfer();
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     start();
     return () => stop();
   }, []);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
 
   const pickDocument = useCallback(async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -59,7 +69,7 @@ export function HomeScreen() {
     if (result.canceled) return;
 
     const asset = result.assets[0];
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    hapticMedium();
     setSelectedFile({
       uri: asset.uri,
       name: asset.name,
@@ -86,7 +96,7 @@ export function HomeScreen() {
     if (result.canceled) return;
 
     const asset = result.assets[0];
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    hapticMedium();
     setSelectedFile({
       uri: asset.uri,
       name: asset.fileName ?? "photo.jpg",
@@ -97,18 +107,34 @@ export function HomeScreen() {
   }, []);
 
   const handleDevicePress = useCallback((device: DiscoveredDevice) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticTap();
     setSelectedDevice(device);
   }, []);
 
   const handleSend = useCallback(async () => {
     if (!selectedFile || !selectedDevice) return;
+
     try {
       await send(selectedDevice, selectedFile);
     } catch (err: any) {
-      Alert.alert("Error al enviar", err.message);
+      setToastMessage(err?.message ?? "Error al enviar el archivo.");
     }
   }, [selectedFile, selectedDevice, send]);
+
+  const handleAcceptTransfer = useCallback(async () => {
+    if (!incoming) return;
+
+    const dirUri = await getDownloadDirUri();
+    if (!dirUri) {
+      setToastMessage(
+        "No configuraste una carpeta de destino. Andá a Ajustes antes de aceptar.",
+      );
+      reject("no_folder");
+      return;
+    }
+
+    accept();
+  }, [incoming, accept, reject]);
 
   const handleDismiss = useCallback(() => {
     reset();
@@ -119,6 +145,8 @@ export function HomeScreen() {
   }, [progress, reset]);
 
   const canSend = !!selectedFile && !!selectedDevice && !isSending;
+  const receiverToast = useReceiverErrors();
+  const finalToastMessage = toastMessage ?? receiverToast;
   const isScanning = status === "scanning";
   const isNoWifi = status === "no_wifi";
 
@@ -306,7 +334,7 @@ export function HomeScreen() {
                     { color: colors.textSecondary, fontSize: t.sizes.sm },
                   ]}
                 >
-                  {(selectedFile.size / 1024 / 1024).toFixed(1)} MB
+                  {(selectedFile.size / 1000 / 1000).toFixed(1)} MB
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setSelectedFile(null)}>
@@ -389,9 +417,10 @@ export function HomeScreen() {
 
       <TransferConfirmDialog
         transfer={incoming}
-        onAccept={accept}
+        onAccept={handleAcceptTransfer}
         onReject={() => reject()}
       />
+      <ErrorToast message={finalToastMessage} />
     </SafeAreaView>
   );
 }

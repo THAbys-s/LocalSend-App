@@ -1,6 +1,6 @@
 import TcpSocket from "react-native-tcp-socket";
 import { Buffer } from "@craftzdog/react-native-buffer";
-import { File, Directory, FileMode, Paths } from "expo-file-system";
+import { File, Directory, FileMode, FileHandle, Paths } from "expo-file-system";
 import { getDownloadDirUri } from "../utils/downloadDir";
 
 const HANDSHAKE_PORT = 53317;
@@ -180,8 +180,10 @@ class TransferReceiverService {
         mimeType: string;
         deviceId: string;
       } | null = null;
-      let fileHandle: any = null;
-      let destFile: File | null = null;
+
+      // Escribimos directamente en el directorio seleccionado.
+      let outputFile: File | null = null;
+      let fileHandle: FileHandle | null = null;
       let writeQueue: Promise<void> = Promise.resolve();
       let writeFailed = false;
 
@@ -189,13 +191,29 @@ class TransferReceiverService {
         writeQueue = writeQueue
           .then(() => {
             if (writeFailed) return;
-            return fileHandle.writeBytes(bytes);
+
+            fileHandle!.writeBytes(bytes);
           })
           .catch((err) => {
             if (writeFailed) return;
+
             writeFailed = true;
-            console.error("[Receiver] Error escribiendo chunk:", err);
-            this._emitError({ reason: "write_error", fileName: header?.name });
+
+            try {
+              fileHandle?.close();
+            } catch {}
+
+            try {
+              outputFile?.delete();
+            } catch {}
+
+            console.error(err);
+
+            this._emitError({
+              reason: "write_error",
+              fileName: header?.name,
+            });
+
             socket.destroy();
           });
       };
@@ -238,6 +256,7 @@ class TransferReceiverService {
             return;
           }
 
+        
           const dirUri = await getDownloadDirUri();
           if (!dirUri) {
             console.warn("[Receiver] No hay carpeta de destino configurada");
@@ -246,16 +265,22 @@ class TransferReceiverService {
           }
 
           try {
-            const dir = new Directory(dirUri);
-            const resolvedName = this._resolveCollision(dir, header.name);
-            destFile = dir.createFile(
-              resolvedName,
-              header.mimeType || "application/octet-stream",
-            );
-            fileHandle = destFile.open(FileMode.Append);
+            const destDir = new Directory(dirUri);
+
+            const resolvedName = this._resolveCollision(destDir, header.name);
+
+            outputFile = new File(destDir, resolvedName);
+
+            if (outputFile.exists) {
+              outputFile.delete();
+            }
+
+            outputFile.create();
+
+            fileHandle = outputFile.open(FileMode.WriteOnly);
           } catch (err) {
-            console.error("[Receiver] Error creando archivo destino:", err);
-            this._failTransfer(socket, "permission_denied", header.name);
+            console.error("[Receiver] Error creando archivo:", err);
+            this._failTransfer(socket, "write_error", header.name);
             return;
           }
 
@@ -271,32 +296,36 @@ class TransferReceiverService {
 
       socket.on("end", () => {
         if (!header || !fileHandle) return;
+
         const h = header;
+        const handle = fileHandle;
 
         writeQueue
           .then(() => {
-            if (writeFailed) return;
-            fileHandle.close();
-            console.log(
-              "[Receiver] Archivo recibido:",
-              h.name,
-              "->",
-              destFile?.uri,
-            );
+            try {
+              handle.close();
+            } catch {}
+
+            console.log("[Receiver] Archivo recibido:", h.name);
+
             this.accepted.delete(h.deviceId);
             this.pending.delete(h.deviceId);
           })
           .catch((err) => {
-            console.error("[Receiver] Error cerrando archivo:", err);
-            this._emitError({ reason: "write_error", fileName: h.name });
+            console.error("[Receiver] Error finalizando archivo:", err);
+
+            try {
+              handle.close();
+            } catch {}
           });
       });
 
       socket.on("error", (err: Error) => {
         console.error("[Receiver] Socket error:", err.message);
+
         writeQueue.finally(() => {
           try {
-            fileHandle?.close();
+            outputFile?.delete();
           } catch {}
         });
       });
