@@ -70,7 +70,6 @@ export function RadarAnimation({ size = 260, active = true }: Props) {
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Static rings */}
       {[0.9, 0.65, 0.42].map((r, i) => (
         <View
           key={i}
@@ -85,12 +84,10 @@ export function RadarAnimation({ size = 260, active = true }: Props) {
         />
       ))}
 
-      {/* Animated waves */}
       {active && [0, 700, 1400].map((delay, i) => (
         <Wave key={i} size={size * 0.88} delay={delay} color={colors.primary} />
       ))}
 
-      {/* Center glow */}
       <View style={{
         width: 44, height: 44, borderRadius: 22,
         backgroundColor: colors.primary + '25',

@@ -36,6 +36,13 @@ import { useIncomingTransfer } from "../hooks/useIncomingTransfer";
 import { useReceiverErrors } from "../hooks/useReceiverErrors";
 import { TransferConfirmDialog } from "../components/TransferConfirmDialog";
 import { getDownloadDirUri } from "../utils/downloadDir";
+import {
+  DesktopIcon,
+  ImageIcon,
+  FileIcon,
+  FolderSimpleIcon,
+  XIcon,
+} from "phosphor-react-native";
 
 const SCAN_STATUS_LABEL: Record<string, string> = {
   idle: "Toca para escanear",
@@ -111,14 +118,14 @@ export function HomeScreen() {
     return () => stop();
   }, []);
 
-  // Handle interruptions (calls, backgrounding): cancel active transfer but keep selection
+  // Manejar el estado de la aplicación para pausar la transferencia si el Foreground Service se detuvo.
   useEffect(() => {
     const onChange = (next: AppStateStatus) => {
       if (next !== "active" && isSending) {
         if (!isForegroundRunning()) {
           cancel();
           setToastMessage(
-            "Transferencia interrumpida. Volvé a intentar cuando estés listo.",
+            "Transferencia interrumpida. Vuelve a intentar cuando estés listo.",
           );
         } else {
           setToastMessage("Transferencia continuará en segundo plano.");
@@ -329,7 +336,7 @@ export function HomeScreen() {
                 { backgroundColor: colors.surface, borderRadius: r.lg },
               ]}
             >
-              <Text style={styles.emptyEmoji}>🖥</Text>
+              <DesktopIcon size={24} color={colors.text} weight="regular" />{" "}
               <Text
                 style={[
                   styles.emptyTitle,
@@ -383,7 +390,11 @@ export function HomeScreen() {
               ]}
             >
               <Text style={styles.selectedFileEmoji}>
-                {selectedFile.thumbnailUri ? "🖼" : "📄"}
+                {selectedFile.thumbnailUri ? (
+                  <ImageIcon size={28} color={colors.text} weight="regular" />
+                ) : (
+                  <FileIcon size={28} color={colors.text} weight="regular" />
+                )}{" "}
               </Text>
               <View style={styles.selectedFileInfo}>
                 <Text
@@ -408,7 +419,7 @@ export function HomeScreen() {
               </View>
               <TouchableOpacity onPress={() => setSelectedFile(null)}>
                 <Text style={[{ color: colors.textMuted, fontSize: 20 }]}>
-                  ✕
+                  <XIcon size={20} color={colors.textMuted} weight="regular" />
                 </Text>
               </TouchableOpacity>
             </View>
@@ -425,7 +436,11 @@ export function HomeScreen() {
                   },
                 ]}
               >
-                <Text style={styles.pickerEmoji}>📁</Text>
+                <FolderSimpleIcon
+                  size={24}
+                  color={colors.text}
+                  weight="regular"
+                />
                 <Text
                   style={[
                     styles.pickerLabel,
@@ -442,7 +457,7 @@ export function HomeScreen() {
                   { backgroundColor: colors.surface, borderRadius: r.lg },
                 ]}
               >
-                <Text style={styles.pickerEmoji}>🖼</Text>
+                <ImageIcon size={28} color={colors.text} weight="regular" />{" "}
                 <Text
                   style={[
                     styles.pickerLabel,

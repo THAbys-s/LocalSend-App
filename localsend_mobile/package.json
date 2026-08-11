@@ -30,6 +30,7 @@
     "expo-notifications": "^56.0.18",
     "expo-status-bar": "~56.0.4",
     "expo-task-manager": "^56.0.19",
+    "phosphor-react-native": "^3.0.6",
     "react": "19.2.3",
     "react-native": "0.85.3",
     "react-native-blob-util": "^0.24.10",
