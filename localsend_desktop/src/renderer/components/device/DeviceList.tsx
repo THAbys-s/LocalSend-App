@@ -1,5 +1,6 @@
 import type { DeviceInfo } from "../../../shared";
 import { DeviceItem } from "./DeviceItem";
+import { CgData, CgMediaPodcast } from "react-icons/cg";
 
 interface Props {
   devices: DeviceInfo[];
@@ -17,7 +18,7 @@ export function DeviceList({
       <>
         <div style={{ ...styles.container, ...styles.empty }}>
           <div style={styles.emptyState}>
-            <span style={styles.emptyIcon}>📡</span>
+            <CgData size={42} style={styles.emptyIcon} />
             <p style={styles.emptyText}>Esperando dispositivos...</p>
           </div>
         </div>
@@ -66,10 +67,10 @@ const styles = {
     textAlign: "center" as const,
   },
   emptyIcon: {
-    fontSize: "32px",
     display: "block",
     marginBottom: "8px",
     animation: "bounce 2s ease-in-out infinite",
+    margin: "0 auto",
   },
   emptyText: {
     fontSize: "14px",

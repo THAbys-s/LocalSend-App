@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { CgFolder } from "react-icons/cg";
 
 interface Props {
   onFileDrop: (files: File[]) => void;
@@ -54,7 +55,7 @@ export function DropZone({ onFileDrop, onPickFile }: Props) {
         />
 
         <div style={styles.content}>
-          <div style={styles.icon}>📁</div>
+          <CgFolder size={62} style={styles.icon} />
           <h2 style={styles.title}>
             {isDragging ? "Suelta el archivo aquí" : "Arrastra un archivo"}
           </h2>
@@ -131,7 +132,6 @@ const styles = {
     gap: "12px",
   },
   icon: {
-    fontSize: "48px",
     animation: "float 3s ease-in-out infinite",
   },
   title: {

@@ -41,11 +41,13 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.0",
+    "@thesvg/react": "^3.2.21",
     "@types/ws": "^8.18.1",
     "electron-squirrel-startup": "^1.0.1",
     "electron-store": "^7.0.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-icons": "^5.7.0",
     "react-router-dom": "^7.17.0",
     "ws": "^8.21.0"
   }

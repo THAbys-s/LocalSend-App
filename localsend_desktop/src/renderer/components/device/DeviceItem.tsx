@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { DeviceInfo } from "../../../shared";
+import type { IconType } from "react-icons";
+import { CgDesktop, CgLaptop, CgSmartphone } from "react-icons/cg";
 
 interface Props {
   device: DeviceInfo;
@@ -7,11 +9,11 @@ interface Props {
   onSelect: () => void;
 }
 
-const DEVICE_ICONS: Record<string, string> = {
-  desktop: "🖥",
-  laptop: "💻",
-  mobile: "📱",
-  unknown: "📱",
+const DEVICE_ICONS: Record<string, IconType> = {
+  desktop: CgDesktop,
+  laptop: CgLaptop,
+  mobile: CgSmartphone,
+  unknown: CgSmartphone,
 };
 
 export function DeviceItem({ device, isSelected, onSelect }: Props) {
@@ -29,7 +31,10 @@ export function DeviceItem({ device, isSelected, onSelect }: Props) {
         onMouseEnter={() => setIsHover(true)}
         onMouseLeave={() => setIsHover(false)}
       >
-        <div style={styles.icon}>{DEVICE_ICONS[device.deviceType] ?? "💻"}</div>
+        {(() => {
+          const Icon = DEVICE_ICONS[device.deviceType] ?? CgLaptop;
+          return <Icon size={20} />;
+        })()}{" "}
         <div style={styles.info}>
           <p style={styles.name}>{device.alias}</p>
           <p style={styles.ip}>{device.ip}</p>

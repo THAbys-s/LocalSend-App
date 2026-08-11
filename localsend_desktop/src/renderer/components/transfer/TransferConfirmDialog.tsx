@@ -1,6 +1,16 @@
-import { useState } from 'react';
-import type { TransferRequestData } from '../../../shared';
-import { formatBytes } from '../../utils/format';
+import { useState } from "react";
+import type { TransferRequestData } from "../../../shared";
+import { formatBytes } from "../../utils/format";
+import {
+  CgFolder,
+  CgImage,
+  CgFilm,
+  CgFileDocument,
+  CgBox,
+  CgTime,
+  CgCloseO,
+  CgCheckO,
+} from "react-icons/cg";
 
 interface Props {
   transfer: TransferRequestData | null;
@@ -9,13 +19,13 @@ interface Props {
   isLoading?: boolean;
 }
 
-function getFileIcon(fileName: string): string {
-  const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return '🖼';
-  if (['mp4', 'avi', 'mov', 'mkv'].includes(ext))           return '🎬';
-  if (ext === 'pdf')                                         return '📄';
-  if (['zip', 'rar', '7z'].includes(ext))                   return '📦';
-  return '📁';
+function FileIcon({ fileName }: { fileName: string }) {
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) return <CgImage />;
+  if (["mp4", "avi", "mov", "mkv"].includes(ext)) return <CgFilm />;
+  if (ext === "pdf") return <CgFileDocument />;
+  if (["zip", "rar", "7z"].includes(ext)) return <CgBox />;
+  return <CgFolder />;
 }
 
 export function TransferConfirmDialog({
@@ -45,31 +55,52 @@ export function TransferConfirmDialog({
           <div style={{ ...styles.contentRow, ...styles.contentRowLast }}>
             <div>
               <div style={styles.label}>Archivo</div>
-              <span style={styles.fileIcon}>{getFileIcon(transfer.file.name)}</span>
+              <span style={styles.fileIcon}>
+                <FileIcon fileName={transfer.file.name} />
+              </span>
               <div style={styles.fileName}>{transfer.file.name}</div>
-              <div style={styles.fileSize}>{formatBytes(transfer.file.size)}</div>
+              <div style={styles.fileSize}>
+                {formatBytes(transfer.file.size)}
+              </div>
             </div>
           </div>
         </div>
 
         <div style={styles.actions}>
           <button
-            style={{ ...styles.button, ...styles.rejectBtn, ...(rejectHover && styles.rejectBtnHover) }}
+            style={{
+              ...styles.button,
+              ...styles.rejectBtn,
+              ...(rejectHover && styles.rejectBtnHover),
+            }}
             onClick={() => onReject()}
             onMouseEnter={() => setRejectHover(true)}
             onMouseLeave={() => setRejectHover(false)}
             disabled={isLoading}
           >
-            Rechazar
+            <CgCloseO /> Rechazar
           </button>
           <button
-            style={{ ...styles.button, ...styles.acceptBtn, ...(acceptHover && styles.acceptBtnHover), opacity: isLoading ? 0.6 : 1 }}
+            style={{
+              ...styles.button,
+              ...styles.acceptBtn,
+              ...(acceptHover && styles.acceptBtnHover),
+              opacity: isLoading ? 0.6 : 1,
+            }}
             onClick={onAccept}
             onMouseEnter={() => setAcceptHover(true)}
             onMouseLeave={() => setAcceptHover(false)}
             disabled={isLoading}
           >
-            {isLoading ? '⏳ Aceptando...' : 'Aceptar'}
+            {isLoading ? (
+              <>
+                <CgTime /> Aceptando...
+              </>
+            ) : (
+              <>
+                <CgCheckO /> Aceptar
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -79,116 +110,116 @@ export function TransferConfirmDialog({
 
 const styles = {
   overlay: {
-    position: 'fixed' as const,
+    position: "fixed" as const,
     inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 1000,
   },
   dialog: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: '16px',
-    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-    maxWidth: '500px',
-    width: '90%',
-    padding: '32px',
-    animation: 'slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    backgroundColor: "#FFFFFF",
+    borderRadius: "16px",
+    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+    maxWidth: "500px",
+    width: "90%",
+    padding: "32px",
+    animation: "slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
   },
   header: {
-    marginBottom: '24px',
+    marginBottom: "24px",
   },
   title: {
-    fontSize: '24px',
+    fontSize: "24px",
     fontWeight: 700,
-    color: '#0D1117',
-    margin: '0 0 8px 0',
+    color: "#0D1117",
+    margin: "0 0 8px 0",
   },
   subtitle: {
-    fontSize: '14px',
-    color: '#6B7280',
+    fontSize: "14px",
+    color: "#6B7280",
     margin: 0,
   },
   content: {
-    marginBottom: '28px',
-    padding: '16px',
-    backgroundColor: '#F9FAFB',
-    borderRadius: '12px',
-    border: '1px solid #E5E7EB',
+    marginBottom: "28px",
+    padding: "16px",
+    backgroundColor: "#F9FAFB",
+    borderRadius: "12px",
+    border: "1px solid #E5E7EB",
   },
   contentRow: {
-    marginBottom: '12px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: "12px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   contentRowLast: {
     marginBottom: 0,
   },
   label: {
-    fontSize: '12px',
-    color: '#6B7280',
+    fontSize: "12px",
+    color: "#6B7280",
     fontWeight: 500,
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px',
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.5px",
   },
   valueAlias: {
-    fontSize: '16px',
+    fontSize: "16px",
     fontWeight: 700,
-    color: '#00C896',
+    color: "#00C896",
   },
   fileIcon: {
-    fontSize: '32px',
-    marginRight: '12px',
+    fontSize: "32px",
+    marginRight: "12px",
   },
   fileInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    marginTop: '4px',
+    display: "flex",
+    alignItems: "center",
+    marginTop: "4px",
   },
   fileName: {
-    fontSize: '14px',
+    fontSize: "14px",
     fontWeight: 600,
-    color: '#0D1117',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap' as const,
+    color: "#0D1117",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap" as const,
   },
   fileSize: {
-    fontSize: '12px',
-    color: '#6B7280',
-    marginTop: '4px',
+    fontSize: "12px",
+    color: "#6B7280",
+    marginTop: "4px",
   },
   actions: {
-    display: 'flex',
-    gap: '12px',
-    justifyContent: 'flex-end',
+    display: "flex",
+    gap: "12px",
+    justifyContent: "flex-end",
   },
   button: {
-    padding: '10px 24px',
-    borderRadius: '8px',
-    fontSize: '14px',
+    padding: "10px 24px",
+    borderRadius: "8px",
+    fontSize: "14px",
     fontWeight: 600,
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    border: "none",
+    cursor: "pointer",
+    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
   },
   rejectBtn: {
-    backgroundColor: '#F3F4F6',
-    color: '#6B7280',
+    backgroundColor: "#F3F4F6",
+    color: "#6B7280",
   },
   rejectBtnHover: {
-    backgroundColor: '#E5E7EB',
-    color: '#0D1117',
+    backgroundColor: "#E5E7EB",
+    color: "#0D1117",
   },
   acceptBtn: {
-    backgroundColor: '#00C896',
-    color: '#FFFFFF',
+    backgroundColor: "#00C896",
+    color: "#FFFFFF",
   },
   acceptBtnHover: {
-    backgroundColor: '#00A07A',
-    transform: 'translateY(-2px)',
-    boxShadow: '0 4px 12px rgba(0, 200, 150, 0.3)',
+    backgroundColor: "#00A07A",
+    transform: "translateY(-2px)",
+    boxShadow: "0 4px 12px rgba(0, 200, 150, 0.3)",
   },
 };

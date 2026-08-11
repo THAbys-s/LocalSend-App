@@ -12,6 +12,7 @@ import { DownloadDirSelector } from "./components/ui/DownloadDirSelector";
 import { useServer } from "./hooks/useServer";
 import { DropZone } from "./components/transfer/DropZone";
 import { SendPanel } from "./components/transfer/SendPanel";
+import { Localsend } from "@thesvg/react";
 
 export default function App() {
   const { devices } = useDiscovery();
@@ -151,9 +152,12 @@ export default function App() {
       <header style={styles.header}>
         <div style={styles.headerContent}>
           <h1 style={styles.appTitle}>
-            <span style={styles.appIcon}>📤</span>
+            <span style={styles.appIcon}>
+              <Localsend width={32} height={32} />
+            </span>
             LocalSend
           </h1>
+          ;
           <AvailabilityIndicator isActive={isActive} />
         </div>
       </header>
@@ -259,9 +263,12 @@ const styles = {
     letterSpacing: "-0.5px",
     margin: 0,
   },
+
   appIcon: {
-    fontSize: "28px",
+    width: "32px",
+    height: "32px",
   },
+
   mainContent: {
     display: "grid",
     gridTemplateColumns: "280px 1fr 240px",
