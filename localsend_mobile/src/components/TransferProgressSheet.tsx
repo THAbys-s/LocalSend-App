@@ -1,34 +1,39 @@
-import { useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { useEffect } from "react";
+import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
-} from 'react-native-reanimated';
-import { useTheme } from '../hooks/useTheme';
-import { TransferProgress } from '../services/TransferService';
-import { formatBytes, formatSpeed } from '../utils/deviceInfo';
+} from "react-native-reanimated";
+import { useTheme } from "../hooks/useTheme";
+import { File } from "phosphor-react-native";
+import { TransferProgress } from "../services/TransferService";
+import { formatBytes, formatSpeed } from "../utils/deviceInfo";
 
 const STATUS_LABEL: Record<string, string> = {
-  connecting:  'Conectando...',
-  handshaking: 'Negociando...',
-  sending:     'Enviando...',
-  success:     '¡Enviado!',
-  rejected:    'Rechazado',
-  error:       'Error',
+  connecting: "Conectando...",
+  handshaking: "Negociando...",
+  sending: "Enviando...",
+  success: "¡Enviado!",
+  rejected: "Rechazado",
+  error: "Error",
 };
 
 interface Props {
-  progress:  TransferProgress;
-  onCancel:  () => void;
+  progress: TransferProgress;
+  onCancel: () => void;
   onDismiss: () => void;
 }
 
-export function TransferProgressSheet({ progress, onCancel, onDismiss }: Props) {
+export function TransferProgressSheet({
+  progress,
+  onCancel,
+  onDismiss,
+}: Props) {
   const { colors, t, s, r } = useTheme();
 
-  const slideY  = useSharedValue(300);
+  const slideY = useSharedValue(300);
   const barFill = useSharedValue(0);
 
   useEffect(() => {
@@ -47,14 +52,18 @@ export function TransferProgressSheet({ progress, onCancel, onDismiss }: Props) 
     width: `${barFill.value * 100}%` as any,
   }));
 
-  const isActive  = ['connecting', 'handshaking', 'sending'].includes(progress.status);
-  const isSuccess = progress.status === 'success';
-  const isError   = progress.status === 'error' || progress.status === 'rejected';
-  const isImage   = progress.fileMime?.startsWith('image/');
+  const isActive = ["connecting", "handshaking", "sending"].includes(
+    progress.status,
+  );
+  const isSuccess = progress.status === "success";
+  const isError = progress.status === "error" || progress.status === "rejected";
+  const isImage = progress.fileMime?.startsWith("image/");
 
-  const statusColor = isSuccess ? colors.success
-                    : isError   ? colors.error
-                    : colors.primary;
+  const statusColor = isSuccess
+    ? colors.success
+    : isError
+      ? colors.error
+      : colors.primary;
 
   return (
     <Animated.View
@@ -62,8 +71,8 @@ export function TransferProgressSheet({ progress, onCancel, onDismiss }: Props) 
         styles.sheet,
         {
           backgroundColor: colors.surface,
-          borderRadius:    r.xl,
-          padding:         s.xl,
+          borderRadius: r.xl,
+          padding: s.xl,
         },
         sheetStyle,
       ]}
@@ -79,39 +88,80 @@ export function TransferProgressSheet({ progress, onCancel, onDismiss }: Props) 
             style={[styles.thumbnail, { borderRadius: r.md }]}
           />
         ) : (
-          <View style={[styles.fileIconBox, { backgroundColor: colors.primary + '20', borderRadius: r.md }]}>
-            <Text style={styles.fileIcon}>📄</Text>
+          <View
+            style={[
+              styles.fileIconBox,
+              { backgroundColor: colors.primary + "20", borderRadius: r.md },
+            ]}
+          >
+            <File size={24} color={colors.primary} weight="regular" />
           </View>
         )}
 
         <View style={styles.fileInfo}>
           <Text
             numberOfLines={2}
-            style={[styles.fileName, { color: colors.text, fontSize: t.sizes.base, fontWeight: t.weights.semibold }]}
+            style={[
+              styles.fileName,
+              {
+                color: colors.text,
+                fontSize: t.sizes.base,
+                fontWeight: t.weights.semibold,
+              },
+            ]}
           >
             {progress.fileName}
           </Text>
-          <Text style={[styles.fileSize, { color: colors.textSecondary, fontSize: t.sizes.sm }]}>
-            {formatBytes(progress.bytesSent)} / {formatBytes(progress.totalBytes)}
+          <Text
+            style={[
+              styles.fileSize,
+              { color: colors.textSecondary, fontSize: t.sizes.sm },
+            ]}
+          >
+            {formatBytes(progress.bytesSent)} /{" "}
+            {formatBytes(progress.totalBytes)}
           </Text>
         </View>
       </View>
 
       {/* Status */}
-      <Text style={[styles.statusLabel, { color: statusColor, fontSize: t.sizes.md, fontWeight: t.weights.semibold }]}>
+      <Text
+        style={[
+          styles.statusLabel,
+          {
+            color: statusColor,
+            fontSize: t.sizes.md,
+            fontWeight: t.weights.semibold,
+          },
+        ]}
+      >
         {STATUS_LABEL[progress.status] ?? progress.status}
       </Text>
 
       {/* Progress bar */}
-      <View style={[styles.barTrack, { backgroundColor: colors.border, borderRadius: r.full }]}>
+      <View
+        style={[
+          styles.barTrack,
+          { backgroundColor: colors.border, borderRadius: r.full },
+        ]}
+      >
         <Animated.View
-          style={[styles.barFill, { backgroundColor: statusColor, borderRadius: r.full }, barStyle]}
+          style={[
+            styles.barFill,
+            { backgroundColor: statusColor, borderRadius: r.full },
+            barStyle,
+          ]}
         />
       </View>
 
       {/* Speed */}
-      {progress.status === 'sending' && progress.speed > 0 && (
-        <Text style={[styles.speed, { color: colors.textSecondary, fontSize: t.sizes.sm }]}>
+      {progress.status === "sending" && progress.speed > 0 && (
+        <Text
+          style={[
+            styles.speed,
+            { color: colors.textSecondary, fontSize: t.sizes.sm },
+          ]}
+        >
           {formatSpeed(progress.speed)}
         </Text>
       )}
@@ -121,9 +171,15 @@ export function TransferProgressSheet({ progress, onCancel, onDismiss }: Props) 
         {isActive && (
           <TouchableOpacity
             onPress={onCancel}
-            style={[styles.btn, styles.btnOutline, { borderColor: colors.border }]}
+            style={[
+              styles.btn,
+              styles.btnOutline,
+              { borderColor: colors.border },
+            ]}
           >
-            <Text style={[styles.btnText, { color: colors.textSecondary }]}>Cancelar</Text>
+            <Text style={[styles.btnText, { color: colors.textSecondary }]}>
+              Cancelar
+            </Text>
           </TouchableOpacity>
         )}
         {(isSuccess || isError) && (
@@ -131,8 +187,8 @@ export function TransferProgressSheet({ progress, onCancel, onDismiss }: Props) 
             onPress={onDismiss}
             style={[styles.btn, { backgroundColor: statusColor }]}
           >
-            <Text style={[styles.btnText, { color: '#fff' }]}>
-              {isSuccess ? 'Listo' : 'Cerrar'}
+            <Text style={[styles.btnText, { color: "#fff" }]}>
+              {isSuccess ? "Listo" : "Cerrar"}
             </Text>
           </TouchableOpacity>
         )}
@@ -143,39 +199,39 @@ export function TransferProgressSheet({ progress, onCancel, onDismiss }: Props) 
 
 const styles = StyleSheet.create({
   sheet: {
-    position:      'absolute',
-    left:          16,
-    right:         16,
-    bottom:        32,
-    shadowColor:   '#000',
-    shadowOffset:  { width: 0, height: -4 },
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: 32,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.12,
-    shadowRadius:  20,
-    elevation:     20,
+    shadowRadius: 20,
+    elevation: 20,
   },
   handle: {
-    width:      36,
-    height:     4,
+    width: 36,
+    height: 4,
     borderRadius: 2,
-    alignSelf:  'center',
+    alignSelf: "center",
     marginBottom: 20,
   },
   fileRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    marginBottom:  16,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
   },
   thumbnail: {
-    width:       56,
-    height:      56,
+    width: 56,
+    height: 56,
     marginRight: 14,
   },
   fileIconBox: {
-    width:           56,
-    height:          56,
-    alignItems:      'center',
-    justifyContent:  'center',
-    marginRight:     14,
+    width: 56,
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
   },
   fileIcon: {
     fontSize: 28,
@@ -191,8 +247,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   barTrack: {
-    height:       8,
-    overflow:     'hidden',
+    height: 8,
+    overflow: "hidden",
     marginBottom: 8,
   },
   barFill: {
@@ -202,22 +258,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   actions: {
-    flexDirection:  'row',
-    justifyContent: 'flex-end',
-    marginTop:      16,
-    gap:            10,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 16,
+    gap: 10,
   },
   btn: {
     paddingHorizontal: 24,
-    paddingVertical:   12,
-    borderRadius:      12,
-    alignItems:        'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
   },
   btnOutline: {
     borderWidth: 1,
   },
   btnText: {
-    fontWeight: '600',
-    fontSize:   15,
+    fontWeight: "600",
+    fontSize: 15,
   },
 });

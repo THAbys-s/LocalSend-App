@@ -1,16 +1,21 @@
-import { useEffect } from 'react';
-import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { useEffect } from "react";
+import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
+import { Desktop, Check, CaretRight } from "phosphor-react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-} from 'react-native-reanimated';
-import { useTheme } from '../hooks/useTheme';
-import { DiscoveredDevice } from '../services/DiscoveryService';
+} from "react-native-reanimated";
+import { useTheme } from "../hooks/useTheme";
+import { DiscoveredDevice } from "../services/DiscoveryService";
 
 const AVATAR_COLORS = [
-  '#00C896', '#7C3AED', '#3B82F6',
-  '#EF4444', '#F59E0B', '#10B981',
+  "#00C896",
+  "#7C3AED",
+  "#3B82F6",
+  "#EF4444",
+  "#F59E0B",
+  "#10B981",
 ];
 
 function avatarColorFor(alias: string): string {
@@ -20,9 +25,9 @@ function avatarColorFor(alias: string): string {
 }
 
 interface Props {
-  device:   DiscoveredDevice;
+  device: DiscoveredDevice;
   selected: boolean;
-  onPress:  (device: DiscoveredDevice) => void;
+  onPress: (device: DiscoveredDevice) => void;
 }
 
 export function DeviceCard({ device, selected, onPress }: Props) {
@@ -37,8 +42,8 @@ export function DeviceCard({ device, selected, onPress }: Props) {
     transform: [{ scale: scale.value }],
   }));
 
-  const borderColor = selected ? colors.primary : 'transparent';
-  const avatarBg    = avatarColorFor(device.alias) + '20';
+  const borderColor = selected ? colors.primary : "transparent";
+  const avatarBg = avatarColorFor(device.alias) + "20";
 
   return (
     <Animated.View style={animatedStyle}>
@@ -49,35 +54,58 @@ export function DeviceCard({ device, selected, onPress }: Props) {
           styles.card,
           {
             backgroundColor: colors.surface,
-            borderRadius:    r.lg,
+            borderRadius: r.lg,
             borderColor,
-            padding:         s.base,
+            padding: s.base,
           },
         ]}
       >
         {/* Avatar */}
-        <View style={[styles.avatar, { backgroundColor: avatarBg, borderRadius: r.md }]}>
-          <Text style={styles.avatarIcon}>🖥</Text>
-          <View style={[styles.onlineDot, { backgroundColor: colors.success }]} />
+        <View
+          style={[
+            styles.avatar,
+            { backgroundColor: avatarBg, borderRadius: r.md },
+          ]}
+        >
+          <Desktop size={24} color={colors.text} weight="regular" />
+          <View
+            style={[styles.onlineDot, { backgroundColor: colors.success }]}
+          />
         </View>
 
         {/* Info */}
         <View style={styles.info}>
           <Text
             numberOfLines={1}
-            style={[styles.alias, { color: colors.text, fontSize: t.sizes.md, fontWeight: t.weights.semibold }]}
+            style={[
+              styles.alias,
+              {
+                color: colors.text,
+                fontSize: t.sizes.md,
+                fontWeight: t.weights.semibold,
+              },
+            ]}
           >
             {device.alias}
           </Text>
-          <Text style={[styles.ip, { color: colors.textSecondary, fontSize: t.sizes.sm }]}>
+          <Text
+            style={[
+              styles.ip,
+              { color: colors.textSecondary, fontSize: t.sizes.sm },
+            ]}
+          >
             {device.ip}
           </Text>
         </View>
 
         {/* Indicator */}
-        <Text style={[styles.indicator, { color: selected ? colors.primary : colors.textMuted }]}>
-          {selected ? '✓' : '›'}
-        </Text>
+        <View style={{ marginLeft: 8 }}>
+          {selected ? (
+            <Check size={20} color={colors.primary} weight="bold" />
+          ) : (
+            <CaretRight size={20} color={colors.textMuted} weight="bold" />
+          )}
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -85,36 +113,36 @@ export function DeviceCard({ device, selected, onPress }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    borderWidth:   2,
-    marginBottom:  10,
-    shadowColor:   '#000',
-    shadowOffset:  { width: 0, height: 2 },
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 2,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius:  8,
-    elevation:     3,
+    shadowRadius: 8,
+    elevation: 3,
   },
   avatar: {
-    width:           52,
-    height:          52,
-    alignItems:      'center',
-    justifyContent:  'center',
-    marginRight:     14,
-    position:        'relative',
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+    position: "relative",
   },
   avatarIcon: {
     fontSize: 26,
   },
   onlineDot: {
-    position:    'absolute',
-    bottom:      2,
-    right:       2,
-    width:       10,
-    height:      10,
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 10,
+    height: 10,
     borderRadius: 5,
-    borderWidth:  2,
-    borderColor:  '#fff',
+    borderWidth: 2,
+    borderColor: "#fff",
   },
   info: {
     flex: 1,
@@ -123,11 +151,11 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   ip: {
-    fontFamily: 'monospace',
+    fontFamily: "monospace",
   },
   indicator: {
-    fontSize:   22,
-    fontWeight: '300',
-    marginLeft:  8,
+    fontSize: 22,
+    fontWeight: "300",
+    marginLeft: 8,
   },
 });

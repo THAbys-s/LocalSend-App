@@ -193,6 +193,9 @@ class TransferService {
       const client = TcpSocket.createConnection(
         { host: ip, port: TCP_PORT },
         async () => {
+          // ensure cancel() can destroy the active TCP client socket
+          this.socket = client;
+
           this._emit({ ...this.current!, status: "sending" });
           try {
             await this._stream(client, file, deviceId);

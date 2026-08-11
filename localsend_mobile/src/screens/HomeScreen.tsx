@@ -42,6 +42,7 @@ import {
   FileIcon,
   FolderSimpleIcon,
   XIcon,
+  Gear,
 } from "phosphor-react-native";
 
 const SCAN_STATUS_LABEL: Record<string, string> = {
@@ -261,9 +262,7 @@ export function HomeScreen() {
               onPress={() => navigation.navigate("Settings")}
               style={styles.refreshBtn}
             >
-              <Text style={[styles.refreshIcon, { color: colors.primary }]}>
-                ⚙
-              </Text>
+              <Gear size={22} color={colors.primary} weight="regular" />
             </TouchableOpacity>
             <ThemeToggleButton />
           </View>
@@ -336,7 +335,7 @@ export function HomeScreen() {
                 { backgroundColor: colors.surface, borderRadius: r.lg },
               ]}
             >
-              <DesktopIcon size={24} color={colors.text} weight="regular" />{" "}
+              <DesktopIcon size={24} color={colors.text} weight="regular" />
               <Text
                 style={[
                   styles.emptyTitle,
@@ -394,7 +393,7 @@ export function HomeScreen() {
                   <ImageIcon size={28} color={colors.text} weight="regular" />
                 ) : (
                   <FileIcon size={28} color={colors.text} weight="regular" />
-                )}{" "}
+                )}
               </Text>
               <View style={styles.selectedFileInfo}>
                 <Text
@@ -457,7 +456,7 @@ export function HomeScreen() {
                   { backgroundColor: colors.surface, borderRadius: r.lg },
                 ]}
               >
-                <ImageIcon size={28} color={colors.text} weight="regular" />{" "}
+                <ImageIcon size={28} color={colors.text} weight="regular" />
                 <Text
                   style={[
                     styles.pickerLabel,
