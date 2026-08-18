@@ -94,9 +94,12 @@ export class DiscoveryService {
           sock.addMembership(MULTICAST_ADDR);
         } catch {}
 
-        sock.on("message", (msg: Buffer, rinfo) => {
-          this._onMessage(msg, rinfo);
-        });
+        sock.on(
+          "message",
+          (msg: Buffer, rinfo: { address: string; port: number }) => {
+            this._onMessage(msg, rinfo);
+          },
+        );
 
         sock.on("error", (err: Error) => {
           console.warn("[Discovery] socket error:", err.message);
@@ -161,7 +164,7 @@ export class DiscoveryService {
       if (data.deviceType === "mobile") return;
 
       const now = Date.now();
-      
+
       const device: DiscoveredDevice = {
         id: data.id ?? rinfo.address,
         alias: data.alias ?? `Desktop (${rinfo.address})`,

@@ -157,14 +157,13 @@ export class WsTransferService {
       return;
     }
     try {
-      transfer.socket.write(
-        JSON.stringify({ type: "reject", message: reason }) + "\n",
-      );
+      const payload =
+        JSON.stringify({ type: "reject", message: reason }) + "\n";
+      transfer.socket.end(payload);
       console.log(`[Handshake] Transferencia rechazada: ${transfer.alias}`);
       clearTimeout(transfer.timeout);
       this.pendingTransfers.delete(deviceId);
       this.acceptedTransfers.delete(deviceId);
-      transfer.socket.end();
     } catch (err) {
       console.error(`[Handshake] Error enviando reject a ${deviceId}:`, err);
     }

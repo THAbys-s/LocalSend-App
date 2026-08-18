@@ -146,7 +146,8 @@ type TransferError =
   | "receiver_cancelled"
   | "sender_cancelled"
   | "disk_full"
-  | "permission_denied";
+  | "permission_denied"
+  | "rejected";
 
 export interface AppConfig {
   deviceId: string;

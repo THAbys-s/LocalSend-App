@@ -45,11 +45,13 @@ function requestHandshake(
           socket.end();
           resolve();
         } else if (msg.type === "reject") {
+          const reason = msg.message ?? "Transferencia rechazada";
           socket.end();
-          reject(new Error(msg.message ?? "Transferencia rechazada"));
+          reject(new Error(reason));
         } else {
+          const reason = msg.message ?? "Error del receptor";
           socket.end();
-          reject(new Error(msg.message ?? "Error del receptor"));
+          reject(new Error(reason));
         }
       } catch {
         socket.destroy();
@@ -133,15 +135,36 @@ export function registerTransferHandlers(
             const myId = configStore.get("deviceId") as string;
             const myAlias = configStore.get("deviceAlias") as string;
 
-            await requestHandshake(targetIp, 53317, {
-              deviceId: myId,
-              alias: myAlias,
-              file: {
-                name: fileName,
-                size: totalBytes,
-                mimeType: "application/octet-stream",
-              },
-            });
+            try {
+              await requestHandshake(targetIp, 53317, {
+                deviceId: myId,
+                alias: myAlias,
+                file: {
+                  name: fileName,
+                  size: totalBytes,
+                  mimeType: "application/octet-stream",
+                },
+              });
+            } catch (handshakeError) {
+              const reason =
+                handshakeError instanceof Error
+                  ? handshakeError.message
+                  : "Transferencia rechazada";
+
+              mainWindow.webContents.send(channels.transferProgress, {
+                fileName,
+                bytesSent: 0,
+                totalBytes,
+                progress: 0,
+                speed: 0,
+                status: "error",
+                error: reason,
+                errorCode: "rejected",
+              });
+
+              resolve({ success: false, error: reason });
+              return;
+            }
 
             let bytesSent = 0;
             let lastTime = Date.now();

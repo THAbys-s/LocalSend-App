@@ -140,7 +140,7 @@ class TransferService {
         reject(new Error("Timeout de conexión"));
       }, 8000);
       let finished = false;
-      socket.on("data", (chunk: string | Buffer) => {
+      socket.on("data", (chunk: any) => {
         const { line, buffer: next } = this.readJsonLine(buffer, chunk);
         buffer = next;
         if (!line) return;
@@ -215,7 +215,7 @@ class TransferService {
         },
       );
 
-      client.on("data", (chunk: string | Buffer) => {
+      client.on("data", (chunk: any) => {
         const { line, buffer: next } = this.readJsonLine(responseBuffer, chunk);
         responseBuffer = next;
         if (!line) return;

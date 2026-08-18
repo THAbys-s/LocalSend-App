@@ -83,12 +83,11 @@ class TransferReceiverService {
     const p = this.pending.get(deviceId);
     if (!p) return;
     try {
-      p.socket.write(
-        JSON.stringify({ type: "reject", message: reason }) + "\n",
-      );
+      const payload =
+        JSON.stringify({ type: "reject", message: reason }) + "\n";
+      p.socket.end(payload);
       clearTimeout(p.timeout);
       this.pending.delete(deviceId);
-      p.socket.end();
     } catch (err) {
       console.warn("[Receiver] Error enviando reject:", err);
     }
@@ -256,7 +255,6 @@ class TransferReceiverService {
             return;
           }
 
-        
           const dirUri = await getDownloadDirUri();
           if (!dirUri) {
             console.warn("[Receiver] No hay carpeta de destino configurada");
