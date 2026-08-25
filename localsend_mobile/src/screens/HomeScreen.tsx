@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -55,25 +55,29 @@ const SCAN_STATUS_LABEL: Record<string, string> = {
 
 function ThemeToggleButton() {
   const { mode, toggle } = useThemeMode();
-  const { colors } = useTheme();
-  const animation = useState(() => new Animated.Value(1))[0];
-
-  const nextMode =
-    mode === "system" ? "dark" : mode === "dark" ? "light" : "system";
+  const { colors, isDark } = useTheme();
+  const animation = useRef(new Animated.Value(1)).current;
+  const isAnimatingRef = useRef(false);
 
   const onPress = () => {
+    if (isAnimatingRef.current) return;
+
+    isAnimatingRef.current = true;
     animation.setValue(0);
     toggle();
+
     Animated.timing(animation, {
       toValue: 1,
-      duration: 280,
+      duration: 260,
       useNativeDriver: true,
-    }).start();
+    }).start(() => {
+      isAnimatingRef.current = false;
+    });
   };
 
   const translateY = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: nextMode === "dark" ? [-10, 0] : [10, 0],
+    outputRange: isDark ? [10, 0] : [-10, 0],
   });
 
   const scale = animation.interpolate({
@@ -89,10 +93,10 @@ function ThemeToggleButton() {
           transform: [{ translateY }, { scale }],
         }}
       >
-        {nextMode === "dark" ? (
-          <MoonIcon size={24} color={colors.primary} />
-        ) : (
+        {isDark ? (
           <SunIcon size={24} color={colors.primary} />
+        ) : (
+          <MoonIcon size={24} color={colors.primary} />
         )}
       </Animated.View>
     </TouchableOpacity>
@@ -543,7 +547,10 @@ const styles = StyleSheet.create({
 
   skeleton: {
     height: 72,
+    width: "100%",
     marginBottom: 10,
+    borderRadius: 16,
+    alignSelf: "stretch",
   },
 
   emptyCard: {

@@ -35,9 +35,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [mode]);
 
   const toggle = () => {
-    setMode((m) =>
-      m === "system" ? "dark" : m === "dark" ? "light" : "system",
-    );
+    setMode((m) => {
+      if (m === "system") {
+        return "dark";
+      }
+      return m === "dark" ? "light" : "dark";
+    });
   };
 
   return (
