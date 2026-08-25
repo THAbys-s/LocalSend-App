@@ -231,7 +231,7 @@ class TransferService {
       });
 
       client.on("error", (e: Error) => reject(new Error(`TCP: ${e.message}`)));
-      client.setTimeout(30000);
+      client.setTimeout(60000);
       client.on("timeout", () => {
         client.destroy();
         reject(new Error("TCP timeout"));

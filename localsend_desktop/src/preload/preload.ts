@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("device:lost", (_event, deviceId) => cb(deviceId)),
   onTransferRequest: (cb: (data: TransferRequestData) => void) =>
     ipcRenderer.on("transfer:request", (_event, data) => cb(data)),
+  onTransferResolvedByNotification: (
+    cb: (data: { deviceId: string; accepted: boolean }) => void,
+  ) =>
+    ipcRenderer.on("transfer:resolved-by-notification", (_event, data) =>
+      cb(data),
+    ),
   onTransferProgress: (cb: (data: any) => void) =>
     ipcRenderer.on("transfer:progress", (_event, data) => cb(data)),
   onServerStatus: (cb: (data: ServerStatusData) => void) =>

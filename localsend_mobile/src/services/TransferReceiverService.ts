@@ -143,7 +143,7 @@ class TransferReceiverService {
               this.pending.delete(deviceId);
               socket.destroy();
             }
-          }, 30000);
+          }, 60000);
 
           this.pending.set(deviceId, {
             deviceId,

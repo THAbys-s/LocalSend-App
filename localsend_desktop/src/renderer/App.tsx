@@ -38,8 +38,28 @@ export default function App() {
       addNotification(`${data.alias} desea enviar: ${data.file.name}`, "info");
     });
 
+    window.electronAPI.onTransferResolvedByNotification(
+      ({ deviceId, accepted }) => {
+        setIncomingTransfer((prev) => {
+          if (prev?.deviceId !== deviceId) return prev;
+
+          addNotification(
+            accepted
+              ? `Transferencia aceptada de ${prev.alias}`
+              : `Transferencia rechazada de ${prev.alias}`,
+            accepted ? "success" : "info",
+          );
+
+          return null;
+        });
+      },
+    );
+
     return () => {
       window.electronAPI.removeAllListeners("transfer:request");
+      window.electronAPI.removeAllListeners(
+        "transfer:resolved-by-notification",
+      );
     };
   }, []);
 

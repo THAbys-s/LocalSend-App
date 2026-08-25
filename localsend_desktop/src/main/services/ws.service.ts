@@ -1,5 +1,6 @@
 import net from "net";
 import type { TransferRequestData } from "../../shared";
+import { NEGOTIATION_TIMEOUT_MS } from "../../shared/constants";
 import { ServerStatusService } from "./server-status.service";
 
 interface PendingTransfer {
@@ -212,14 +213,16 @@ export class WsTransferService {
 
     const timeout = setTimeout(() => {
       if (this.pendingTransfers.has(deviceId)) {
-        console.warn(`[Handshake] Timeout esperando respuesta para: ${alias}`);
+        console.warn(
+          `[Handshake] Timeout esperando respuesta para: ${alias} (${deviceId.slice(0, 8)}...)`,
+        );
         socket.write(
           JSON.stringify({ type: "error", message: "Timeout" }) + "\n",
         );
         this.pendingTransfers.delete(deviceId);
         socket.destroy();
       }
-    }, 30000);
+    }, NEGOTIATION_TIMEOUT_MS);
 
     this.pendingTransfers.set(deviceId, { deviceId, alias, socket, timeout });
 

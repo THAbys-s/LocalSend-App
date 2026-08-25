@@ -4,6 +4,9 @@ declare global {
       onDeviceFound: (cb: (device: DeviceInfo) => void) => void;
       onDeviceLost: (cb: (deviceId: string) => void) => void;
       onTransferRequest: (cb: (data: TransferRequestData) => void) => void;
+      onTransferResolvedByNotification: (
+        cb: (data: { deviceId: string; accepted: boolean }) => void,
+      ) => void;
       onTransferProgress: (cb: (data: TransferProgressData) => void) => void;
       respondTransfer: (
         deviceId: string,

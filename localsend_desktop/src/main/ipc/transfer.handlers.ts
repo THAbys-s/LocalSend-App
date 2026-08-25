@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow, dialog } from "electron";
 import fs from "fs";
 import path from "path";
 import net from "net";
-import { channels } from "../../shared/constants";
+import { channels, NEGOTIATION_TIMEOUT_MS } from "../../shared/constants";
 import type { SendFilePayload } from "../../shared";
 import { configStore } from "../store/config.store";
 import { WsTransferService } from "../services/ws.service";
@@ -30,7 +30,7 @@ function requestHandshake(
     const timeout = setTimeout(() => {
       socket.destroy();
       reject(new Error("Timeout esperando respuesta del receptor"));
-    }, 35000);
+    }, NEGOTIATION_TIMEOUT_MS);
 
     socket.on("data", (chunk: Buffer) => {
       buffer = Buffer.concat([buffer, chunk]);

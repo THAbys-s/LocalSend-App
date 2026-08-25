@@ -4,6 +4,7 @@ export const DEFAULT_TCP_PORT = 53318;
 export const BROADCAST_ADDR = "255.255.255.255";
 export const BEACON_INTERVAL_MS = 2000;
 export const DEVICE_TIMEOUT_MS = 6000; // si no vemos beacon en 6s lo consideramos perdido
+export const NEGOTIATION_TIMEOUT_MS = 90000;
 
 export const channels = {
   sendFile: "ipc-send-file",

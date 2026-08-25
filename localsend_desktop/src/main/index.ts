@@ -1,4 +1,5 @@
 import path from "path";
+import { registerTransferNotifications } from "./services/transfer-notification.service";
 import { app, BrowserWindow } from "electron";
 import { UdpDiscoveryService } from "./services/udp.service";
 import { WsTransferService } from "./services/ws.service";
@@ -32,6 +33,8 @@ function createWindow(): BrowserWindow {
       nodeIntegration: false,
     },
   });
+
+  registerTransferNotifications(wsService, () => mainWindow);
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
