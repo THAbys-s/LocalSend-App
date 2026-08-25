@@ -1,4 +1,3 @@
-import { Platform } from "react-native";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -47,11 +46,21 @@ const COLORS = [
   "Zircon",
 ];
 
-function generateAlias(): string {
+export function generateFriendlyAlias(suffix?: string): string {
   const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
   const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-  const plat = Platform.OS === "ios" ? "iPhone" : "Android";
-  return `${adj} ${color} ${plat}`;
+  const name = `${adj} ${color}`;
+  const formatted = name
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+  return suffix
+    ? `${formatted} ${suffix.charAt(0).toUpperCase() + suffix.slice(1).toLowerCase()}`
+    : formatted;
+}
+
+function generateAlias(): string {
+  return generateFriendlyAlias();
 }
 
 function generateId(): string {
@@ -60,6 +69,8 @@ function generateId(): string {
 
 let _id: string | null = null;
 let _alias: string | null = null;
+const discoveredAliases = new Map<string, string>();
+const discoveredAliasPromises = new Map<string, Promise<string>>();
 
 export async function getDeviceId(): Promise<string> {
   if (_id) return _id;
@@ -99,6 +110,42 @@ export async function setDeviceAlias(alias: string): Promise<void> {
   try {
     await AsyncStorage.setItem("ls_device_alias", alias);
   } catch (_) {}
+}
+
+export async function getDiscoveredDeviceAlias(
+  deviceId: string,
+  suffix = "Desktop",
+): Promise<string> {
+  const cachedAlias = discoveredAliases.get(deviceId);
+  if (cachedAlias) return cachedAlias;
+
+  const pendingAlias = discoveredAliasPromises.get(deviceId);
+  if (pendingAlias) return pendingAlias;
+
+  const aliasPromise = (async () => {
+    const storageKey = `ls_discovered_alias_${deviceId}`;
+    try {
+      const stored = await AsyncStorage.getItem(storageKey);
+      if (stored) {
+        discoveredAliases.set(deviceId, stored);
+        return stored;
+      }
+    } catch (_) {}
+
+    const alias = generateFriendlyAlias(suffix);
+    discoveredAliases.set(deviceId, alias);
+    try {
+      await AsyncStorage.setItem(storageKey, alias);
+    } catch (_) {}
+    return alias;
+  })();
+
+  discoveredAliasPromises.set(deviceId, aliasPromise);
+  try {
+    return await aliasPromise;
+  } finally {
+    discoveredAliasPromises.delete(deviceId);
+  }
 }
 
 export function formatBytes(bytes: number): string {

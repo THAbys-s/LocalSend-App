@@ -1,5 +1,9 @@
 import UdpSocket from "react-native-udp";
-import { getDeviceAlias, getDeviceId } from "../utils/deviceInfo";
+import {
+  getDiscoveredDeviceAlias,
+  getDeviceAlias,
+  getDeviceId,
+} from "../utils/deviceInfo";
 import { Buffer } from "buffer";
 
 const PORT = 53317;
@@ -97,7 +101,7 @@ export class DiscoveryService {
         sock.on(
           "message",
           (msg: Buffer, rinfo: { address: string; port: number }) => {
-            this._onMessage(msg, rinfo);
+            this._onMessage(msg, rinfo).catch(() => {});
           },
         );
 
@@ -153,10 +157,10 @@ export class DiscoveryService {
     await send(MULTICAST_ADDR);
   }
 
-  private _onMessage(
+  private async _onMessage(
     msg: Buffer,
     rinfo: { address: string; port: number },
-  ): void {
+  ): Promise<void> {
     try {
       const data = JSON.parse(msg.toString("utf8"));
 
@@ -164,10 +168,11 @@ export class DiscoveryService {
       if (data.deviceType === "mobile") return;
 
       const now = Date.now();
+      const id = data.id ?? rinfo.address;
 
       const device: DiscoveredDevice = {
-        id: data.id ?? rinfo.address,
-        alias: data.alias ?? `Desktop (${rinfo.address})`,
+        id,
+        alias: await getDiscoveredDeviceAlias(id),
         ip: rinfo.address,
         port: data.port ?? PORT,
         lastSeen: now,

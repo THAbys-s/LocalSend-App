@@ -1,0 +1,23 @@
+# Dependencies — EAS installs them on the build server
+node_modules/
+
+# Native build artifacts
+android/**/build/
+android/.gradle/
+
+# Expo
+.expo/
+
+# Git
+.git/
+
+# Local build output
+dist/
+build/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
