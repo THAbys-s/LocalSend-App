@@ -109,4 +109,4 @@ Estos puertos deben estar disponibles para la comunicación entre los dispositiv
 
 # Nota Importante
 
-Este proyecto es solo una tarea a resolver en mis estudios, no tengo la más mínima intención de lucrar con ello.
+Este proyecto es solo una tarea a resolver en mis estudios, no tengo la más minima intención de lucrar con ello.
