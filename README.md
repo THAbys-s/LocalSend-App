@@ -1,6 +1,134 @@
 # LocalSend
 
-Aplicación para enviar archivos entre dispositivos conectados a una misma red local.
+<div align="center">
+
+  <img src="localsend_mobile/assets/icon.png" alt="LocalSend" width="350">
+
+  <p>
+    Aplicación para enviar archivos entre dispositivos conectados a una misma red local.
+  </p>
+
+  <img src="https://img.shields.io/badge/Estado-En%20desarrollo-yellow" alt="Estado del proyecto">
+  <img src="https://img.shields.io/badge/Plataforma-Windows-blue" alt="Plataforma">
+  <img src="https://img.shields.io/badge/Mobile-Android-green" alt="Android">
+
+<br><br>
+
+  <a href="README.md">
+    <img src="localsend_mobile/images/flags/ar.png" width="24" alt="Español">
+    Español
+  </a>
+  |
+  <a href="README.EN.md">
+    <img src="localsend_mobile/images/flags/us.png" width="24" alt="English">
+    English
+  </a>
+
+</div>
+
+---
+
+## Índice
+
+* [Descripción del proyecto](#descripción-del-proyecto)
+* [Estado del proyecto](#estado-del-proyecto)
+* [Demostración](#demostración)
+* [Acceso al proyecto](#acceso-al-proyecto)
+* [Tecnologías utilizadas](#tecnologías-utilizadas)
+* [Configuración de red](#configuración-de-red)
+* [Solución de problemas](#solución-de-problemas)
+* [Puertos utilizados](#puertos-utilizados)
+* [Nota importante](#nota-importante)
+
+## Descripción del proyecto
+
+LocalSend es una aplicación desarrollada para permitir el envío de archivos entre dispositivos conectados a una misma red local.
+
+El proyecto busca ofrecer una alternativa sencilla para transferir archivos directamente entre una computadora y un dispositivo móvil, sin depender de servicios externos de almacenamiento ni de una conexión a Internet.
+
+Los dispositivos se descubren dentro de la red local y las transferencias se realizan directamente entre ellos.
+
+La aplicación está compuesta por una versión de escritorio y una versión para dispositivos móviles Android.
+
+## Estado del proyecto
+
+El proyecto se encuentra actualmente en **desarrollo**.
+
+Las versiones disponibles son versiones de prueba y pueden contener errores, cambios de comportamiento o funcionalidades incompletas.
+
+## Demostración
+
+### Aplicación de escritorio
+
+La aplicación de escritorio permite visualizar los dispositivos disponibles dentro de la red local y seleccionar archivos para enviarlos a otros dispositivos.
+
+<div align="center">
+
+  <img src="localsend_desktop/images/desktop.png" alt="LocalSend Desktop" width="800">
+
+</div>
+
+<div align="center">
+
+  <img src="localsend_desktop/images/transfer.png" alt="Transferencia de archivos (desktop)" width="800">
+
+</div>
+
+### Aplicación móvil
+
+La aplicación móvil permite recibir y enviar archivos desde dispositivos Android conectados a la misma red local.
+
+<div align="center">
+
+  <img src="localsend_mobile/images/mobile.jpeg" alt="LocalSend Mobile" width="350">
+
+</div>
+
+<div align="center">
+
+  <img src="localsend_mobile/images/transfer.jpeg" alt="Transferencia de archivos (mobile)" width="350">
+
+</div>
+
+## Acceso al proyecto
+
+El código fuente se encuentra disponible en este repositorio.
+
+Las versiones compiladas de la aplicación pueden encontrarse en la sección **Releases** de GitHub.
+
+### Aplicación de escritorio
+
+Las versiones para escritorio pueden distribuirse mediante los instaladores correspondientes a cada sistema operativo.
+
+### Aplicación móvil
+
+La aplicación Android se distribuye mediante archivos APK generados a partir del proyecto.
+
+> Las versiones disponibles pueden cambiar a medida que avance el desarrollo.
+
+## Tecnologías utilizadas
+
+### Aplicación de escritorio
+
+* Electron Forge
+* Vite
+* React
+* TypeScript
+
+### Aplicación móvil
+
+* React Native
+* Expo
+* TypeScript
+
+### Comunicación de red
+
+La comunicación entre dispositivos se realiza dentro de la red local.
+
+* **UDP (`53317`)** — descubrimiento de dispositivos.
+* **TCP (`53318`)** — transferencia de archivos.
+
+No es necesaria una conexión a Internet para realizar una transferencia entre dispositivos que puedan comunicarse correctamente dentro de la misma red local.
 
 ## Configuración de red
 
@@ -44,7 +172,7 @@ Algunos routers impiden que los dispositivos conectados a la misma red se comuni
 * Wireless Isolation
 * Wi-Fi Isolation
 
-Si esta función está habilitada, los dispositivos pueden tener acceso a Internet pero no podrán detectarse entre ellos.
+Si esta función está habilitada, los dispositivos pueden tener acceso a Internet pero no podrán comunicarse directamente entre ellos.
 
 Las redes Wi-Fi de invitados suelen utilizar este tipo de aislamiento de forma predeterminada.
 
@@ -82,7 +210,7 @@ Si un dispositivo no aparece en la lista:
 5. Desactive temporalmente las VPN y los adaptadores de red virtuales.
 6. Reinicie LocalSend en ambos dispositivos.
 
-El descubrimiento utiliza **UDP en el puerto `53317`**. Si el firewall o la red bloquean este tráfico, los dispositivos no podrán aparecer automáticamente.
+El descubrimiento utiliza **UDP en el puerto `53317`**. Si el firewall o la red bloquean este tráfico, los dispositivos no aparecerán automáticamente.
 
 ### Los dispositivos aparecen pero no se pueden enviar archivos
 
@@ -107,6 +235,8 @@ LocalSend utiliza los siguientes puertos para la comunicación dentro de la red 
 
 Estos puertos deben estar disponibles para la comunicación entre los dispositivos que utilizan LocalSend.
 
-# Nota Importante
+## Nota importante
 
-Este proyecto es solo una tarea a resolver en mis estudios, no tengo la más minima intención de lucrar con ello.
+Este proyecto fue desarrollado como parte de una tarea académica.
+
+El proyecto no tiene fines comerciales ni intención de lucro.

@@ -73,6 +73,10 @@ class TransferService {
   async send(ip: string, file: FileToSend): Promise<void> {
     this.cancelled = false;
     this.networkLost = false;
+    const fileToSend = {
+      ...file,
+      size: await this._getFileSize(file),
+    };
     console.log("[Transfer] URI recibida:", file.uri);
     const deviceId = await getDeviceId();
     const alias = await getDeviceAlias();
@@ -81,12 +85,12 @@ class TransferService {
       status: "connecting",
       progress: 0,
       bytesSent: 0,
-      totalBytes: file.size,
+      totalBytes: fileToSend.size,
       speed: 0,
-      fileName: file.name,
-      fileUri: file.uri,
-      fileMime: file.type,
-      thumbnailUri: file.thumbnailUri,
+      fileName: fileToSend.name,
+      fileUri: fileToSend.uri,
+      fileMime: fileToSend.type,
+      thumbnailUri: fileToSend.thumbnailUri,
     });
 
     try {
@@ -101,9 +105,9 @@ class TransferService {
         }
       });
 
-      await this._handshake(ip, file, deviceId, alias);
+      await this._handshake(ip, fileToSend, deviceId, alias);
       if (this.cancelled) return;
-      await this._tcpStream(ip, file, deviceId);
+      await this._tcpStream(ip, fileToSend, deviceId);
     } catch (err: any) {
       const kind: TransferErrorKind =
         this.networkLost ||
@@ -267,6 +271,24 @@ class TransferService {
     });
   }
 
+  private async _getFileSize(file: FileToSend): Promise<number> {
+    const path = this._getFilePath(file.uri);
+
+    try {
+      const stat = await ReactNativeBlobUtil.fs.stat(path);
+      const size = Number(stat.size);
+      if (Number.isFinite(size) && size >= 0) return size;
+    } catch (err) {
+      console.warn("[Transfer] No se pudo consultar el tamaño real:", err);
+    }
+
+    return file.size;
+  }
+
+  private _getFilePath(uri: string): string {
+    return uri.startsWith("content://") ? uri : uri.replace("file://", "");
+  }
+
   private async _stream(
     client: any,
     file: FileToSend,
@@ -281,9 +303,7 @@ class TransferService {
       }) + "\n";
     await this._write(client, Buffer.from(header, "utf8"));
 
-    const path = file.uri.startsWith("content://")
-      ? file.uri
-      : file.uri.replace("file://", "");
+    const path = this._getFilePath(file.uri);
     console.log("[Transfer] path calculado para readStream:", path);
     let bytesSent = 0;
     let lastTime = Date.now();
