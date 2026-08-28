@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   AppState,
   AppStateStatus,
   Animated,
@@ -36,6 +35,7 @@ import { useIncomingTransfer } from "../hooks/useIncomingTransfer";
 import { useReceiverErrors } from "../hooks/useReceiverErrors";
 import { TransferConfirmDialog } from "../components/TransferConfirmDialog";
 import { getDownloadDirUri } from "../utils/downloadDir";
+import { usePermissions } from "../hooks/usePermissions";
 import {
   DesktopIcon,
   ImageIcon,
@@ -105,6 +105,7 @@ function ThemeToggleButton() {
 
 export function HomeScreen() {
   const { colors, t, s, r } = useTheme();
+  const { requestMediaLibrary } = usePermissions();
   const { devices, status, error, start, stop } = useDiscovery();
   const { progress, send, cancel, reset, isSending } = useTransfer();
   const [selectedFile, setSelectedFile] = useState<FileToSend | null>(null);
@@ -164,15 +165,10 @@ export function HomeScreen() {
   }, []);
 
   const pickImage = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const granted = await requestMediaLibrary();
 
-    if (status !== "granted") {
-      Alert.alert(
-        "Permiso requerido",
-        "Necesitamos acceso a tu galería para enviar imágenes.",
-      );
-      return;
-    }
+    if (!granted) return;
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images", "videos"],
       quality: 1,

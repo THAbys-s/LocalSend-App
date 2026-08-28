@@ -5,6 +5,7 @@ import { getDownloadDirUri } from "../utils/downloadDir";
 
 const HANDSHAKE_PORT = 53317;
 const DATA_PORT = 53318;
+const NEGOTIATION_TIMEOUT_MS = 600000;
 
 export interface IncomingTransferRequest {
   deviceId: string;
@@ -115,7 +116,10 @@ class TransferReceiverService {
   private _startHandshakeServer(): void {
     this.handshakeServer = TcpSocket.createServer((socket: any) => {
       let buffer = Buffer.alloc(0);
-      const timeout = setTimeout(() => socket.destroy(), 10000);
+      const timeout = setTimeout(
+        () => socket.destroy(),
+        NEGOTIATION_TIMEOUT_MS,
+      );
 
       socket.on("data", (chunk: Buffer) => {
         buffer = Buffer.concat([buffer, chunk]);
@@ -143,7 +147,7 @@ class TransferReceiverService {
               this.pending.delete(deviceId);
               socket.destroy();
             }
-          }, 60000);
+          }, NEGOTIATION_TIMEOUT_MS);
 
           this.pending.set(deviceId, {
             deviceId,
@@ -267,13 +271,7 @@ class TransferReceiverService {
 
             const resolvedName = this._resolveCollision(destDir, header.name);
 
-            outputFile = new File(destDir, resolvedName);
-
-            if (outputFile.exists) {
-              outputFile.delete();
-            }
-
-            outputFile.create();
+            outputFile = destDir.createFile(resolvedName, header.mimeType);
 
             fileHandle = outputFile.open(FileMode.WriteOnly);
           } catch (err) {

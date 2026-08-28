@@ -1,11 +1,13 @@
 import TcpSocket from "react-native-tcp-socket";
 import ReactNativeBlobUtil from "react-native-blob-util";
+import NetInfo from "@react-native-community/netinfo";
 import { getDeviceAlias, getDeviceId } from "../utils/deviceInfo";
 import { Buffer } from "@craftzdog/react-native-buffer";
 
 const WS_PORT = 53317;
 const TCP_PORT = 53318;
 const CHUNK = 32760;
+const NEGOTIATION_TIMEOUT_MS = 600000;
 
 export type TransferStatus =
   | "idle"
@@ -45,6 +47,9 @@ class TransferService {
   private listeners = new Set<ProgressListener>();
   private current: TransferProgress | null = null;
   private cancelled = false;
+  private networkLost = false;
+  private networkUnsubscribe: (() => void) | null = null;
+  private cancelPending: (() => void) | null = null;
 
   addListener(fn: ProgressListener): () => void {
     this.listeners.add(fn);
@@ -57,6 +62,8 @@ class TransferService {
 
   cancel(): void {
     this.cancelled = true;
+    this.cancelPending?.();
+    this.cancelPending = null;
     try {
       this.socket?.destroy();
     } catch (_) {}
@@ -65,6 +72,7 @@ class TransferService {
 
   async send(ip: string, file: FileToSend): Promise<void> {
     this.cancelled = false;
+    this.networkLost = false;
     console.log("[Transfer] URI recibida:", file.uri);
     const deviceId = await getDeviceId();
     const alias = await getDeviceAlias();
@@ -82,17 +90,28 @@ class TransferService {
     });
 
     try {
+      const networkState = await NetInfo.fetch();
+      if (networkState.isConnected === false) {
+        throw new Error("Sin conexión de red");
+      }
+      this.networkUnsubscribe = NetInfo.addEventListener((state) => {
+        if (state.isConnected === false) {
+          this.networkLost = true;
+          this.cancel();
+        }
+      });
+
       await this._handshake(ip, file, deviceId, alias);
       if (this.cancelled) return;
       await this._tcpStream(ip, file, deviceId);
     } catch (err: any) {
-      const kind: TransferErrorKind = /ECONNREFUSED|ETIMEDOUT|Network|TCP/.test(
-        err.message,
-      )
-        ? "network"
-        : err.message === "Transferencia rechazada"
-          ? "rejected"
-          : "unknown";
+      const kind: TransferErrorKind =
+        this.networkLost ||
+        /ECONNREFUSED|ETIMEDOUT|Network|TCP|conexión de red/i.test(err.message)
+          ? "network"
+          : err.message === "Transferencia rechazada"
+            ? "rejected"
+            : "unknown";
       this._emit({
         ...this.current!,
         status: "error",
@@ -101,6 +120,9 @@ class TransferService {
       } as any);
       throw err;
     } finally {
+      this.networkUnsubscribe?.();
+      this.networkUnsubscribe = null;
+      this.cancelPending = null;
       try {
         this.socket?.destroy();
       } catch (_) {}
@@ -115,6 +137,7 @@ class TransferService {
     alias: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
+      this.cancelPending = () => reject(new Error("Cancelado"));
       const socket = TcpSocket.createConnection(
         { host: ip, port: WS_PORT },
         () => {
@@ -138,7 +161,7 @@ class TransferService {
       const timeout = setTimeout(() => {
         socket.destroy();
         reject(new Error("Timeout de conexión"));
-      }, 8000);
+      }, NEGOTIATION_TIMEOUT_MS);
       let finished = false;
       socket.on("data", (chunk: any) => {
         const { line, buffer: next } = this.readJsonLine(buffer, chunk);
@@ -150,9 +173,11 @@ class TransferService {
         try {
           const msg = JSON.parse(line);
           if (msg.type === "accept") {
+            this.cancelPending = null;
             finished = true;
             resolve();
           } else if (msg.type === "reject") {
+            this.cancelPending = null;
             this.update({ status: "rejected" });
             finished = true;
             reject(new Error(this.getReceiverError(msg.message)));
@@ -165,6 +190,7 @@ class TransferService {
       });
 
       socket.on("error", (err: Error) => {
+        this.cancelPending = null;
         clearTimeout(timeout);
         reject(
           new Error(`No se pudo conectar a ${ip}:${WS_PORT}: ${err.message}`),
@@ -172,6 +198,7 @@ class TransferService {
       });
 
       socket.on("close", () => {
+        this.cancelPending = null;
         clearTimeout(timeout);
         if (!finished) {
           finished = true;
@@ -187,6 +214,7 @@ class TransferService {
     deviceId: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
+      this.cancelPending = () => reject(new Error("Cancelado"));
       let receiverError: string | null = null;
       let responseBuffer = Buffer.alloc(0);
 

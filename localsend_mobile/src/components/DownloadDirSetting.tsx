@@ -6,9 +6,11 @@ import {
   clearDownloadDir,
 } from "../utils/downloadDir";
 import { useTheme } from "../hooks/useTheme";
+import { usePermissions } from "../hooks/usePermissions";
 
 export function DownloadDirSetting() {
   const { colors, t, s, r } = useTheme();
+  const { openSettings } = usePermissions();
   const [dirUri, setDirUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +22,11 @@ export function DownloadDirSetting() {
 
   const handlePick = async () => {
     const uri = await pickDownloadDir();
-    if (uri) setDirUri(uri);
+    if (!uri) {
+      openSettings();
+      return;
+    }
+    setDirUri(uri);
   };
 
   const handleReset = async () => {
