@@ -6,8 +6,8 @@ import { WsTransferService } from "./services/ws.service";
 import { ServerStatusService } from "./services/server-status.service";
 import { registerIpcHandlers } from "./ipc";
 import { createTcpService } from "./services/tcp.service";
-import { channels } from "../shared/constants";
-import { DEFAULT_TCP_PORT } from "../shared/constants";
+import { channels, DEFAULT_TCP_PORT } from "../shared/constants";
+import { cancelActiveTransfers } from "./ipc/transfer.handlers";
 
 const TCP_PORT = Number(process.argv[2] ?? DEFAULT_TCP_PORT);
 console.log("[Main] argv:", process.argv);
@@ -56,6 +56,7 @@ app.whenReady().then(() => {
   });
 
   createTcpService(serverStatus, TCP_PORT, wsService);
+  udpService.onNetworkLost = cancelActiveTransfers;
 
   udpService.start();
   wsService.start();

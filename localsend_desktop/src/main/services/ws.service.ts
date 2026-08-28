@@ -1,6 +1,9 @@
+import fs from "fs";
 import net from "net";
-import type { TransferRequestData } from "../../shared";
+import path from "path";
+import type { CollisionPolicy, TransferRequestData } from "../../shared";
 import { NEGOTIATION_TIMEOUT_MS } from "../../shared/constants";
+import { configStore } from "../store/config.store";
 import { ServerStatusService } from "./server-status.service";
 
 interface PendingTransfer {
@@ -11,12 +14,18 @@ interface PendingTransfer {
 }
 
 type TransferRequestHandler = (data: TransferRequestData) => void;
+type TransferExpiredHandler = (data: {
+  deviceId: string;
+  alias: string;
+}) => void;
 
 export class WsTransferService {
   private server: net.Server | null = null;
   private pendingTransfers = new Map<string, PendingTransfer>();
   private acceptedTransfers = new Set<string>();
+  private acceptedPolicies = new Map<string, CollisionPolicy>();
   private listeners = new Set<TransferRequestHandler>();
+  private expiredListeners = new Set<TransferExpiredHandler>();
   private port: number;
 
   private readonly serverStatus: ServerStatusService;
@@ -36,10 +45,10 @@ export class WsTransferService {
 
       const timeout = setTimeout(() => {
         console.warn(
-          "[Handshake] Cliente no envió mensaje en 10s, desconectando",
+          "[Handshake] Cliente no envió mensaje en 120s, desconectando",
         );
         socket.destroy();
-      }, 10000);
+      }, NEGOTIATION_TIMEOUT_MS);
 
       socket.on("data", (chunk: Buffer) => {
         buffer = Buffer.concat([buffer, chunk]);
@@ -118,15 +127,36 @@ export class WsTransferService {
     this.server = null;
   }
 
-  on(event: "transfer-request", handler: TransferRequestHandler): void {
-    this.listeners.add(handler);
+  on(event: "transfer-request", handler: TransferRequestHandler): void;
+  on(event: "transfer-request-expired", handler: TransferExpiredHandler): void;
+  on(event: string, handler: any): void {
+    if (event === "transfer-request") {
+      this.listeners.add(handler as TransferRequestHandler);
+      return;
+    }
+
+    if (event === "transfer-request-expired") {
+      this.expiredListeners.add(handler as TransferExpiredHandler);
+    }
   }
 
-  off(event: "transfer-request", handler: TransferRequestHandler): void {
-    this.listeners.delete(handler);
+  off(event: "transfer-request", handler: TransferRequestHandler): void;
+  off(event: "transfer-request-expired", handler: TransferExpiredHandler): void;
+  off(event: string, handler: any): void {
+    if (event === "transfer-request") {
+      this.listeners.delete(handler as TransferRequestHandler);
+      return;
+    }
+
+    if (event === "transfer-request-expired") {
+      this.expiredListeners.delete(handler as TransferExpiredHandler);
+    }
   }
 
-  accept(deviceId: string): void {
+  accept(
+    deviceId: string,
+    collisionPolicy: CollisionPolicy = "keepBoth",
+  ): void {
     const transfer = this.pendingTransfers.get(deviceId);
     if (!transfer) {
       console.warn(
@@ -135,13 +165,19 @@ export class WsTransferService {
       return;
     }
     try {
-      transfer.socket.write(JSON.stringify({ type: "accept" }) + "\n");
+      transfer.socket.write(
+        JSON.stringify({ type: "accept", policy: collisionPolicy }) + "\n",
+      );
       console.log(
-        `[Handshake] Transferencia aceptada: ${transfer.alias} (${deviceId.slice(0, 8)}...)`,
+        `[Handshake] Transferencia aceptada: ${transfer.alias} (${deviceId.slice(0, 8)}...) | Política: ${collisionPolicy}`,
       );
       clearTimeout(transfer.timeout);
       this.acceptedTransfers.add(deviceId);
-      setTimeout(() => this.acceptedTransfers.delete(deviceId), 60000);
+      this.acceptedPolicies.set(deviceId, collisionPolicy);
+      setTimeout(() => {
+        this.acceptedTransfers.delete(deviceId);
+        this.acceptedPolicies.delete(deviceId);
+      }, NEGOTIATION_TIMEOUT_MS);
       this.pendingTransfers.delete(deviceId);
       transfer.socket.end();
     } catch (err) {
@@ -174,8 +210,13 @@ export class WsTransferService {
     return this.acceptedTransfers.has(deviceId);
   }
 
+  getCollisionPolicy(deviceId: string): CollisionPolicy | undefined {
+    return this.acceptedPolicies.get(deviceId);
+  }
+
   consumeAcceptance(deviceId: string): void {
     this.acceptedTransfers.delete(deviceId);
+    this.acceptedPolicies.delete(deviceId);
     this.pendingTransfers.delete(deviceId);
   }
 
@@ -201,10 +242,15 @@ export class WsTransferService {
       return;
     }
 
+    const downloadDir =
+      (configStore.get("downloadDir") as string | undefined) ||
+      path.join(process.cwd(), "downloads");
+
     const transferData: TransferRequestData = {
       deviceId,
       alias,
       file: { name: file.name, size: file.size, mimeType: file.mimeType },
+      hasCollision: fs.existsSync(path.join(downloadDir, file.name)),
     };
 
     console.log(
@@ -213,13 +259,21 @@ export class WsTransferService {
 
     const timeout = setTimeout(() => {
       if (this.pendingTransfers.has(deviceId)) {
+        const expiredTransfer = this.pendingTransfers.get(deviceId)!;
         console.warn(
           `[Handshake] Timeout esperando respuesta para: ${alias} (${deviceId.slice(0, 8)}...)`,
         );
         socket.write(
           JSON.stringify({ type: "error", message: "Timeout" }) + "\n",
         );
+
+        for (const handler of this.expiredListeners) {
+          handler({ deviceId, alias });
+        }
+
         this.pendingTransfers.delete(deviceId);
+        this.acceptedTransfers.delete(deviceId);
+        this.acceptedPolicies.delete(deviceId);
         socket.destroy();
       }
     }, NEGOTIATION_TIMEOUT_MS);

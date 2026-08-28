@@ -3,9 +3,19 @@ import fs from "fs";
 import path from "path";
 import net from "net";
 import { channels, NEGOTIATION_TIMEOUT_MS } from "../../shared/constants";
-import type { SendFilePayload } from "../../shared";
+import type { CollisionPolicy, SendFilePayload } from "../../shared";
 import { configStore } from "../store/config.store";
 import { WsTransferService } from "../services/ws.service";
+
+const activeSockets = new Set<net.Socket>();
+const cancelledSockets = new Set<net.Socket>();
+
+export function cancelActiveTransfers(): void {
+  for (const socket of activeSockets) {
+    cancelledSockets.add(socket);
+    socket.destroy();
+  }
+}
 
 function requestHandshake(
   targetIp: string,
@@ -25,6 +35,7 @@ function requestHandshake(
         );
       },
     );
+    activeSockets.add(socket);
 
     let buffer = Buffer.alloc(0);
     const timeout = setTimeout(() => {
@@ -61,11 +72,16 @@ function requestHandshake(
 
     socket.on("error", (err) => {
       clearTimeout(timeout);
+      activeSockets.delete(socket);
       reject(
         new Error(
           `No se pudo conectar a ${targetIp}:${handshakePort}: ${err.message}`,
         ),
       );
+    });
+    socket.on("close", () => {
+      activeSockets.delete(socket);
+      cancelledSockets.delete(socket);
     });
   });
 }
@@ -109,11 +125,20 @@ export function registerTransferHandlers(
     channels.transferRespond,
     (
       _event,
-      payload: { deviceId: string; accept: boolean; reason?: string },
+      payload: {
+        deviceId: string;
+        accept: boolean;
+        reason?: string;
+        collisionPolicy?: CollisionPolicy;
+      },
     ) => {
-      const { deviceId, accept, reason } = payload;
+      const { deviceId, accept, reason, collisionPolicy } = payload;
       if (accept) {
-        wsService.accept(deviceId);
+        if (collisionPolicy === "skip") {
+          wsService.reject(deviceId);
+        } else {
+          wsService.accept(deviceId, collisionPolicy ?? "keepBoth");
+        }
       } else {
         wsService.reject(deviceId, reason);
       }
@@ -227,6 +252,7 @@ export function registerTransferHandlers(
                 });
               },
             );
+            activeSockets.add(client);
 
             let receiverError: string | null = null;
 
@@ -237,10 +263,21 @@ export function registerTransferHandlers(
                   receiverError =
                     REASON_MESSAGES[msg.reason] ?? REASON_MESSAGES.unknown;
                 }
-              } catch {}
+              } catch (error) {
+                void error;
+              }
             });
 
             client.on("close", () => {
+              activeSockets.delete(client);
+              const wasCancelled = cancelledSockets.delete(client);
+              if (wasCancelled) {
+                resolve({
+                  success: false,
+                  error: "Transferencia cancelada: conexión de red perdida",
+                });
+                return;
+              }
               if (receiverError) {
                 console.log(
                   `[IPC] Transferencia rechazada por el receptor: ${receiverError}`,

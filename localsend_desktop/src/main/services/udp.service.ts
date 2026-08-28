@@ -22,6 +22,17 @@ function getLocalIP(): string {
   return "127.0.0.1";
 }
 
+function hasNetworkInterface(): boolean {
+  return Object.values(os.networkInterfaces()).some((iface) =>
+    (iface ?? []).some(
+      (info) =>
+        info.family === "IPv4" &&
+        !info.internal &&
+        !info.address.startsWith("169.254."),
+    ),
+  );
+}
+
 function detectOS(): DeviceOS {
   switch (process.platform) {
     case "win32":
@@ -38,6 +49,7 @@ function detectOS(): DeviceOS {
 export class UdpDiscoveryService {
   private socket: dgram.Socket | null = null;
   private beaconTimer: NodeJS.Timeout | null = null;
+  private networkTimer: NodeJS.Timeout | null = null;
 
   private deviceTimeouts = new Map<string, NodeJS.Timeout>();
   private devices = new Map<string, DeviceInfo>();
@@ -48,6 +60,7 @@ export class UdpDiscoveryService {
   onDeviceLost?: (deviceId: string) => void;
   onReady?: () => void;
   onError?: (err: Error) => void;
+  onNetworkLost?: () => void;
 
   private myInfo: DeviceInfo;
 
@@ -66,6 +79,16 @@ export class UdpDiscoveryService {
   }
 
   start(): void {
+    this.networkTimer = setInterval(() => {
+      const connected = hasNetworkInterface();
+      if (!connected) {
+        this.serverStatus.setUdp(false);
+        this.onNetworkLost?.();
+      } else if (this.socket) {
+        this.serverStatus.setUdp(true);
+      }
+    }, 1000);
+
     this.socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
 
     this.socket.on("error", (err) => {
@@ -102,12 +125,14 @@ export class UdpDiscoveryService {
         }
 
         this.resetDeviceTimeout(device);
-      } catch {}
+      } catch (error) {
+        void error;
+      }
     });
     this.socket.bind(UDP_PORT, () => {
       this.socket!.setBroadcast(true);
 
-      this.serverStatus.setUdp(true);
+      this.serverStatus.setUdp(hasNetworkInterface());
 
       console.log(`[UDP] Servidor escuchando en puerto ${UDP_PORT}`);
       console.log(
@@ -156,6 +181,10 @@ export class UdpDiscoveryService {
     if (this.beaconTimer) {
       clearInterval(this.beaconTimer);
       this.beaconTimer = null;
+    }
+    if (this.networkTimer) {
+      clearInterval(this.networkTimer);
+      this.networkTimer = null;
     }
 
     for (const timer of this.deviceTimeouts.values()) clearTimeout(timer);

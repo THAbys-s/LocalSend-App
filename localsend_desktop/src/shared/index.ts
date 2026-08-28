@@ -4,6 +4,9 @@ declare global {
       onDeviceFound: (cb: (device: DeviceInfo) => void) => void;
       onDeviceLost: (cb: (deviceId: string) => void) => void;
       onTransferRequest: (cb: (data: TransferRequestData) => void) => void;
+      onTransferRequestExpired: (
+        cb: (data: { deviceId: string; alias: string }) => void,
+      ) => void;
       onTransferResolvedByNotification: (
         cb: (data: { deviceId: string; accepted: boolean }) => void,
       ) => void;
@@ -12,6 +15,7 @@ declare global {
         deviceId: string,
         accept: boolean,
         reason?: string,
+        collisionPolicy?: CollisionPolicy,
       ) => Promise<{ success: boolean }>;
       removeAllListeners: (channel: string) => void;
       sendFile: (
@@ -110,6 +114,7 @@ export interface TransferRequestData {
     size: number;
     mimeType: string;
   };
+  hasCollision?: boolean;
 }
 
 export interface TransferProgressData {

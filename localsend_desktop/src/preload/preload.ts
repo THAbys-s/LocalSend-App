@@ -14,6 +14,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("device:lost", (_event, deviceId) => cb(deviceId)),
   onTransferRequest: (cb: (data: TransferRequestData) => void) =>
     ipcRenderer.on("transfer:request", (_event, data) => cb(data)),
+  onTransferRequestExpired: (
+    cb: (data: { deviceId: string; alias: string }) => void,
+  ) => ipcRenderer.on("transfer:request-expired", (_event, data) => cb(data)),
   onTransferResolvedByNotification: (
     cb: (data: { deviceId: string; accepted: boolean }) => void,
   ) =>
@@ -24,8 +27,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("transfer:progress", (_event, data) => cb(data)),
   onServerStatus: (cb: (data: ServerStatusData) => void) =>
     ipcRenderer.on("server:status", (_event, data) => cb(data)),
-  respondTransfer: (deviceId: string, accept: boolean, reason?: string) =>
-    ipcRenderer.invoke("transfer:respond", { deviceId, accept, reason }),
+  respondTransfer: (
+    deviceId: string,
+    accept: boolean,
+    reason?: string,
+    collisionPolicy?: "replace" | "keepBoth" | "skip",
+  ) =>
+    ipcRenderer.invoke("transfer:respond", {
+      deviceId,
+      accept,
+      reason,
+      collisionPolicy,
+    }),
   removeAllListeners: (channel: string) =>
     ipcRenderer.removeAllListeners(channel),
   getPathForFile: (file: File) => webUtils.getPathForFile(file),

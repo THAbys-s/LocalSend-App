@@ -32,10 +32,16 @@ export function registerTransferNotifications(
       );
 
       if (accepted) {
-        wsService.accept(data.deviceId);
-      } else {
-        wsService.reject(data.deviceId);
+        if (win) {
+          if (win.isMinimized()) win.restore();
+          win.show();
+          win.focus();
+          win.webContents.send("transfer:request", data);
+        }
+        return;
       }
+
+      wsService.reject(data.deviceId);
 
       win?.webContents.send("transfer:resolved-by-notification", {
         deviceId: data.deviceId,
@@ -57,5 +63,15 @@ export function registerTransferNotifications(
 
     console.log(`[Notification] Mostrando toast para: ${data.alias}`);
     notification.show();
+  });
+
+  wsService.on("transfer-request-expired", ({ deviceId, alias }) => {
+    const win = getMainWindow();
+    if (win) {
+      win.webContents.send("transfer:request-expired", { deviceId, alias });
+    }
+    console.log(
+      `[Notification] Solicitud de transferencia vencida para: ${alias}`,
+    );
   });
 }

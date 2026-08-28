@@ -10,6 +10,7 @@ interface TransferHeader {
   size: number;
   mimeType: string;
   deviceId: string;
+  policy?: "replace" | "keepBoth" | "skip";
 }
 
 function getDownloadDir(): string {
@@ -23,18 +24,34 @@ function getDownloadDir(): string {
   return dir;
 }
 
-function resolveCollision(dir: string, fileName: string): string {
-  let destination = path.join(dir, fileName);
-  if (!fs.existsSync(destination)) return destination;
+function resolveCollision(
+  dir: string,
+  fileName: string,
+  policy: "replace" | "keepBoth" | "skip" = "keepBoth",
+): string | null {
+  const destination = path.join(dir, fileName);
+
+  if (!fs.existsSync(destination)) {
+    return destination;
+  }
+
+  if (policy === "skip") {
+    return null;
+  }
+
+  if (policy === "replace") {
+    return destination;
+  }
 
   const ext = path.extname(fileName);
   const base = path.basename(fileName, ext);
   let counter = 1;
-  while (fs.existsSync(destination)) {
-    destination = path.join(dir, `${base} (${counter})${ext}`);
+  let candidate = path.join(dir, `${base} (${counter})${ext}`);
+  while (fs.existsSync(candidate)) {
     counter++;
+    candidate = path.join(dir, `${base} (${counter})${ext}`);
   }
-  return destination;
+  return candidate;
 }
 
 export function createTcpService(
@@ -83,8 +100,20 @@ export function createTcpService(
           return;
         }
 
+        const policy =
+          wsService.getCollisionPolicy(header.deviceId) ?? "keepBoth";
         const downloadDir = getDownloadDir();
-        const destination = resolveCollision(downloadDir, header.name);
+        const destination = resolveCollision(downloadDir, header.name, policy);
+        if (!destination) {
+          console.log(`[TCP] Archivo omitido por conflicto: ${header.name}`);
+          socket.destroy();
+          return;
+        }
+
+        if (policy === "replace" && fs.existsSync(destination)) {
+          fs.unlinkSync(destination);
+        }
+
         writeStream = fs.createWriteStream(destination);
         headerParsed = true;
 

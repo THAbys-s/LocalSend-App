@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { TransferRequestData } from "../../../shared";
+import type { CollisionPolicy, TransferRequestData } from "../../../shared";
 import { formatBytes } from "../../utils/format";
 import {
   CgFolder,
@@ -14,7 +14,7 @@ import {
 
 interface Props {
   transfer: TransferRequestData | null;
-  onAccept: () => void;
+  onAccept: (policy?: CollisionPolicy) => void;
   onReject: (reason?: string) => void;
   isLoading?: boolean;
 }
@@ -38,6 +38,12 @@ export function TransferConfirmDialog({
   const [acceptHover, setAcceptHover] = useState(false);
 
   if (!transfer) return null;
+
+  const collisionOptions: Array<{ label: string; policy: CollisionPolicy }> = [
+    { label: "Reemplazar", policy: "replace" },
+    { label: "Mantener ambos (renombrar)", policy: "keepBoth" },
+    { label: "Omitir", policy: "skip" },
+  ];
 
   return (
     <div style={styles.overlay}>
@@ -64,6 +70,25 @@ export function TransferConfirmDialog({
               </div>
             </div>
           </div>
+
+          {transfer.hasCollision && (
+            <div style={styles.collisionBox}>
+              <div style={styles.collisionTitle}>Ya existe este archivo</div>
+              <div style={styles.collisionOptions}>
+                {collisionOptions.map(({ label, policy }) => (
+                  <button
+                    key={policy}
+                    style={styles.collisionButton}
+                    onClick={() => onAccept(policy)}
+                    disabled={isLoading}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={styles.actions}>
@@ -80,28 +105,31 @@ export function TransferConfirmDialog({
           >
             <CgCloseO /> Rechazar
           </button>
-          <button
-            style={{
-              ...styles.button,
-              ...styles.acceptBtn,
-              ...(acceptHover && styles.acceptBtnHover),
-              opacity: isLoading ? 0.6 : 1,
-            }}
-            onClick={onAccept}
-            onMouseEnter={() => setAcceptHover(true)}
-            onMouseLeave={() => setAcceptHover(false)}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <CgTime /> Aceptando...
-              </>
-            ) : (
-              <>
-                <CgCheckO /> Aceptar
-              </>
-            )}
-          </button>
+          {!transfer.hasCollision && (
+            <button
+              style={{
+                ...styles.button,
+                ...styles.acceptBtn,
+                ...(acceptHover && styles.acceptBtnHover),
+                opacity: isLoading ? 0.6 : 1,
+              }}
+              onClick={() => onAccept("keepBoth")}
+              onMouseEnter={() => setAcceptHover(true)}
+              onMouseLeave={() => setAcceptHover(false)}
+              disabled={isLoading}
+              type="button"
+            >
+              {isLoading ? (
+                <>
+                  <CgTime /> Aceptando...
+                </>
+              ) : (
+                <>
+                  <CgCheckO /> Aceptar
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -190,6 +218,35 @@ const styles = {
     fontSize: "12px",
     color: "#6B7280",
     marginTop: "4px",
+  },
+  collisionBox: {
+    marginTop: "16px",
+    padding: "14px",
+    backgroundColor: "#EEF2FF",
+    borderRadius: "10px",
+    border: "1px solid #C7D2FE",
+  },
+  collisionTitle: {
+    fontSize: "13px",
+    fontWeight: 700,
+    color: "#312E81",
+    marginBottom: "10px",
+  },
+  collisionOptions: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "8px",
+  },
+  collisionButton: {
+    width: "100%",
+    textAlign: "left" as const,
+    padding: "10px 12px",
+    borderRadius: "8px",
+    border: "1px solid #C7D2FE",
+    backgroundColor: "#FFFFFF",
+    color: "#1F2937",
+    cursor: "pointer",
+    fontWeight: 600,
   },
   actions: {
     display: "flex",

@@ -6,7 +6,11 @@ import { NotificationCenter } from "./components/ui/NotificationCenter";
 import { TransferConfirmDialog } from "./components/transfer/TransferConfirmDialog";
 import { useDiscovery } from "./hooks/useDiscovery";
 import { useTransfer } from "./hooks/useTransfer";
-import type { TransferRequestData, DeviceInfo } from "../shared";
+import type {
+  CollisionPolicy,
+  TransferRequestData,
+  DeviceInfo,
+} from "../shared";
 import type { FileToSend } from "../shared";
 import { DownloadDirSelector } from "./components/ui/DownloadDirSelector";
 import { useServer } from "./hooks/useServer";
@@ -38,6 +42,18 @@ export default function App() {
       addNotification(`${data.alias} desea enviar: ${data.file.name}`, "info");
     });
 
+    window.electronAPI.onTransferRequestExpired(({ deviceId, alias }) => {
+      setIncomingTransfer((prev) => {
+        if (prev?.deviceId !== deviceId) return prev;
+
+        addNotification(
+          `La solicitud de ${alias} venció antes de responder`,
+          "info",
+        );
+        return null;
+      });
+    });
+
     window.electronAPI.onTransferResolvedByNotification(
       ({ deviceId, accepted }) => {
         setIncomingTransfer((prev) => {
@@ -57,6 +73,7 @@ export default function App() {
 
     return () => {
       window.electronAPI.removeAllListeners("transfer:request");
+      window.electronAPI.removeAllListeners("transfer:request-expired");
       window.electronAPI.removeAllListeners(
         "transfer:resolved-by-notification",
       );
@@ -114,12 +131,17 @@ export default function App() {
     setSelectedFile(null);
   };
 
-  const handleAcceptTransfer = async () => {
+  const handleAcceptTransfer = async (policy: CollisionPolicy = "keepBoth") => {
     if (!incomingTransfer) return;
 
     setRespondingTransfer(incomingTransfer.deviceId);
     try {
-      await window.electronAPI.respondTransfer(incomingTransfer.deviceId, true);
+      await window.electronAPI.respondTransfer(
+        incomingTransfer.deviceId,
+        true,
+        undefined,
+        policy,
+      );
       addNotification(
         `Transferencia aceptada de ${incomingTransfer.alias}`,
         "success",
@@ -177,7 +199,6 @@ export default function App() {
             </span>
             LocalSend
           </h1>
-          ;
           <AvailabilityIndicator isActive={isActive} />
         </div>
       </header>
