@@ -7,6 +7,7 @@ import { Buffer } from "@craftzdog/react-native-buffer";
 const WS_PORT = 53317;
 const TCP_PORT = 53318;
 const CHUNK = 32760;
+const PROGRESS_UPDATE_INTERVAL_MS = 120;
 const NEGOTIATION_TIMEOUT_MS = 600000;
 
 export type TransferStatus =
@@ -73,11 +74,6 @@ class TransferService {
   async send(ip: string, file: FileToSend): Promise<void> {
     this.cancelled = false;
     this.networkLost = false;
-    const fileToSend = {
-      ...file,
-      size: await this._getFileSize(file),
-    };
-    console.log("[Transfer] URI recibida:", file.uri);
     const deviceId = await getDeviceId();
     const alias = await getDeviceAlias();
 
@@ -85,15 +81,20 @@ class TransferService {
       status: "connecting",
       progress: 0,
       bytesSent: 0,
-      totalBytes: fileToSend.size,
+      totalBytes: file.size,
       speed: 0,
-      fileName: fileToSend.name,
-      fileUri: fileToSend.uri,
-      fileMime: fileToSend.type,
-      thumbnailUri: fileToSend.thumbnailUri,
+      fileName: file.name,
+      fileUri: file.uri,
+      fileMime: file.type,
+      thumbnailUri: file.thumbnailUri,
     });
 
     try {
+      const fileToSend = {
+        ...file,
+        size: await this._getFileSize(file),
+      };
+      this.update({ totalBytes: fileToSend.size });
       const networkState = await NetInfo.fetch();
       if (networkState.isConnected === false) {
         throw new Error("Sin conexión de red");
@@ -304,10 +305,10 @@ class TransferService {
     await this._write(client, Buffer.from(header, "utf8"));
 
     const path = this._getFilePath(file.uri);
-    console.log("[Transfer] path calculado para readStream:", path);
     let bytesSent = 0;
     let lastTime = Date.now();
     let lastBytes = 0;
+    let lastProgressUpdate = 0;
 
     return new Promise((resolve, reject) => {
       let finished = false;
@@ -316,14 +317,9 @@ class TransferService {
       ReactNativeBlobUtil.fs
         .readStream(path, "base64", CHUNK)
         .then((stream: any) => {
-          console.log("[Transfer] readStream abierto para:", path);
           stream.open();
 
           stream.onData((chunk: string) => {
-            console.log(
-              "[Transfer] chunk recibido, tamaño base64:",
-              chunk.length,
-            );
             if (this.cancelled) {
               if (!finished) {
                 finished = true;
@@ -351,14 +347,17 @@ class TransferService {
                   lastBytes = bytesSent;
                 }
 
-                this._emit({
-                  ...this.current!,
-                  status: "sending",
-                  progress: bytesSent / file.size,
-                  bytesSent,
-                  totalBytes: file.size,
-                  speed,
-                });
+                if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL_MS) {
+                  lastProgressUpdate = now;
+                  this._emit({
+                    ...this.current!,
+                    status: "sending",
+                    progress: bytesSent / file.size,
+                    bytesSent,
+                    totalBytes: file.size,
+                    speed,
+                  });
+                }
               })
               .catch((err) => {
                 if (!finished) {
@@ -370,7 +369,6 @@ class TransferService {
           });
 
           stream.onError((err: any) => {
-            console.log("[Transfer] readStream error:", err);
             if (!finished) {
               finished = true;
               reject(
@@ -382,7 +380,6 @@ class TransferService {
           });
 
           stream.onEnd(() => {
-            console.log("[Transfer] readStream onEnd disparado");
             writeQueue
               .then(() => {
                 if (finished) return;
@@ -398,7 +395,6 @@ class TransferService {
                 resolve();
               })
               .catch((err) => {
-                console.log("[Transfer] readStream falló al abrir:", err);
                 if (!finished) {
                   finished = true;
                   reject(err);

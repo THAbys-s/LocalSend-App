@@ -41,7 +41,7 @@ export function TransferProgressSheet({
   }, []);
 
   useEffect(() => {
-    barFill.value = withTiming(progress.progress, { duration: 300 });
+    barFill.value = withTiming(progress.progress, { duration: 120 });
   }, [progress.progress]);
 
   const sheetStyle = useAnimatedStyle(() => ({

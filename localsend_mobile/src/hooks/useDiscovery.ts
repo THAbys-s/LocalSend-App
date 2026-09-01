@@ -69,7 +69,6 @@ export function useDiscovery(): UseDiscoveryResult {
       setStatus("scanning");
 
       const unsub = discoveryService.addListener((updated) => {
-        console.log("DEVICES RAW:", updated);
         setDevices([...updated]);
       });
 
