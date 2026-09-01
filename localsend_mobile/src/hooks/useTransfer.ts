@@ -25,6 +25,15 @@ export function useTransfer(): UseTransferResult {
 
   useEffect(() => {
     return transferService.addListener((p) => {
+      const shouldAutoCloseOnError =
+        p.status === "error" && "errorKind" in p && p.errorKind === "network";
+
+      if (shouldAutoCloseOnError) {
+        setProgress(null);
+        hapticError();
+        return;
+      }
+
       setProgress({ ...p });
 
       switch (p.status) {

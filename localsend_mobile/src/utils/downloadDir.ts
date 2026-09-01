@@ -13,16 +13,14 @@ export async function pickDownloadDir(): Promise<string | null> {
     await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
 
   if (!perm.granted) {
-    if (!perm.canAskAgain || perm.status === "restricted") {
-      Alert.alert(
-        "Permiso requerido",
-        "Necesitamos acceso a una carpeta para guardar archivos. Actívalo desde Ajustes de la app.",
-        [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Ir a Ajustes", onPress: () => Linking.openSettings() },
-        ],
-      );
-    }
+    Alert.alert(
+      "Permiso requerido",
+      "Necesitamos acceso a una carpeta para guardar archivos. Actívalo desde Ajustes de la app.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Ir a Ajustes", onPress: () => Linking.openSettings() },
+      ],
+    );
     return null;
   }
 

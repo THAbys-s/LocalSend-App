@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("transfer:progress", (_event, data) => cb(data)),
   onServerStatus: (cb: (data: ServerStatusData) => void) =>
     ipcRenderer.on("server:status", (_event, data) => cb(data)),
+  cancelTransfer: () => ipcRenderer.invoke("transfer:cancel"),
   respondTransfer: (
     deviceId: string,
     accept: boolean,

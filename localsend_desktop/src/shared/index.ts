@@ -11,6 +11,7 @@ declare global {
         cb: (data: { deviceId: string; accepted: boolean }) => void,
       ) => void;
       onTransferProgress: (cb: (data: TransferProgressData) => void) => void;
+      cancelTransfer: () => Promise<{ success: boolean }>;
       respondTransfer: (
         deviceId: string,
         accept: boolean,

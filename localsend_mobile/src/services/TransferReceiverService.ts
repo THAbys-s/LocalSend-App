@@ -1,6 +1,7 @@
 import TcpSocket from "react-native-tcp-socket";
 import { Buffer } from "@craftzdog/react-native-buffer";
-import { File, Directory, FileMode, FileHandle, Paths } from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
+import { File, FileMode, type FileHandle } from "expo-file-system";
 import { getDownloadDirUri } from "../utils/downloadDir";
 
 const HANDSHAKE_PORT = 53317;
@@ -182,11 +183,11 @@ class TransferReceiverService {
         deviceId: string;
       } | null = null;
 
-      // Escribimos directamente en el directorio seleccionado.
-      let outputFile: File | null = null;
+      let tempOutputFile: File | null = null;
       let fileHandle: FileHandle | null = null;
       let writeQueue: Promise<void> = Promise.resolve();
       let writeFailed = false;
+      let selectedDirUri: string | null = null;
 
       const enqueueWrite = (bytes: Uint8Array) => {
         writeQueue = writeQueue
@@ -205,7 +206,7 @@ class TransferReceiverService {
             } catch {}
 
             try {
-              outputFile?.delete();
+              tempOutputFile?.delete();
             } catch {}
 
             this._emitError({
@@ -247,25 +248,19 @@ class TransferReceiverService {
             return;
           }
 
-          if (Paths.availableDiskSpace < header.size) {
-            this._failTransfer(socket, "no_space", header.name);
-            return;
-          }
-
           const dirUri = await getDownloadDirUri();
           if (!dirUri) {
             this._failTransfer(socket, "no_folder", header.name);
             return;
           }
+          selectedDirUri = dirUri;
 
           try {
-            const destDir = new Directory(dirUri);
-
-            const resolvedName = this._resolveCollision(destDir, header.name);
-
-            outputFile = destDir.createFile(resolvedName, header.mimeType);
-
-            fileHandle = outputFile.open(FileMode.WriteOnly);
+            const tempName = `tmp_${Date.now()}_${header.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+            tempOutputFile = new File(
+              `${FileSystem.cacheDirectory ?? "file:///data/user/0/com.localsend.app/cache/"}${tempName}`,
+            );
+            fileHandle = tempOutputFile.open(FileMode.WriteOnly);
           } catch {
             this._failTransfer(socket, "write_error", header.name);
             return;
@@ -281,32 +276,64 @@ class TransferReceiverService {
         })();
       });
 
-      socket.on("end", () => {
-        if (!header || !fileHandle) return;
+      socket.on("end", async () => {
+        if (!header || !fileHandle || !selectedDirUri || !tempOutputFile)
+          return;
 
         const h = header;
         const handle = fileHandle;
 
-        writeQueue
-          .then(() => {
-            try {
-              handle.close();
-            } catch {}
+        try {
+          await writeQueue;
+          try {
+            handle.close();
+          } catch {}
 
-            this.accepted.delete(h.deviceId);
-            this.pending.delete(h.deviceId);
-          })
-          .catch(() => {
-            try {
-              handle.close();
-            } catch {}
-          });
+          const resolvedName = await this._resolveCollision(
+            selectedDirUri,
+            h.name,
+          );
+          const finalUri =
+            await FileSystem.StorageAccessFramework.createFileAsync(
+              selectedDirUri,
+              resolvedName,
+              h.mimeType,
+            );
+          const base64 = await FileSystem.readAsStringAsync(
+            tempOutputFile.uri,
+            {
+              encoding: FileSystem.EncodingType.Base64,
+            },
+          );
+          await FileSystem.StorageAccessFramework.writeAsStringAsync(
+            finalUri,
+            base64,
+            {
+              encoding: FileSystem.EncodingType.Base64,
+            },
+          );
+
+          try {
+            tempOutputFile.delete();
+          } catch {}
+
+          this.accepted.delete(h.deviceId);
+          this.pending.delete(h.deviceId);
+        } catch {
+          try {
+            handle.close();
+          } catch {}
+          try {
+            tempOutputFile.delete();
+          } catch {}
+          this._failTransfer(socket, "write_error", h.name);
+        }
       });
 
       socket.on("error", () => {
         writeQueue.finally(() => {
           try {
-            outputFile?.delete();
+            tempOutputFile?.delete();
           } catch {}
         });
       });
@@ -315,8 +342,19 @@ class TransferReceiverService {
     this.dataServer.listen({ port: DATA_PORT, host: "0.0.0.0" }, () => {});
   }
 
-  private _resolveCollision(dir: Directory, fileName: string): string {
-    const existingNames = new Set(dir.list().map((item) => item.name));
+  private async _resolveCollision(
+    dirUri: string,
+    fileName: string,
+  ): Promise<string> {
+    const existing =
+      await FileSystem.StorageAccessFramework.readDirectoryAsync(dirUri);
+    const existingNames = new Set(
+      existing.map((uri: string) => {
+        const last = uri.split("/").pop() ?? "";
+        return decodeURIComponent(last);
+      }),
+    );
+
     if (!existingNames.has(fileName)) return fileName;
 
     const dotIndex = fileName.lastIndexOf(".");

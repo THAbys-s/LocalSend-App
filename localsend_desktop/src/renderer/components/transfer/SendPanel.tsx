@@ -38,11 +38,20 @@ export function SendPanel({
         style={{
           ...styles.sendButton,
           backgroundColor: isTransferring ? "#EF4444" : "#00C896",
-          opacity: selectedFile && selectedDevice ? 1 : 0.5,
-          cursor: selectedFile && selectedDevice ? "pointer" : "not-allowed",
+          opacity: isTransferring || (selectedFile && selectedDevice) ? 1 : 0.5,
+          cursor:
+            isTransferring || (selectedFile && selectedDevice)
+              ? "pointer"
+              : "not-allowed",
         }}
-        disabled={!selectedFile || !selectedDevice}
-        onClick={isTransferring ? onCancel : onSend}
+        disabled={isTransferring ? false : !selectedFile || !selectedDevice}
+        onClick={
+          isTransferring
+            ? onCancel
+            : selectedFile && selectedDevice
+              ? onSend
+              : undefined
+        }
       >
         {isTransferring ? "Cancelar" : "Enviar"}
       </button>

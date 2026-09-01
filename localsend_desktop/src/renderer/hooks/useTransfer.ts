@@ -5,6 +5,7 @@ interface UseTransferResult {
   transfer: Transfer | null;
   startTransfer: (file: FileToSend, device: DeviceInfo) => Promise<void>;
   cancelTransfer: () => void;
+  dismissTransfer: () => void;
 }
 
 export function useTransfer(): UseTransferResult {
@@ -16,6 +17,15 @@ export function useTransfer(): UseTransferResult {
 
     window.electronAPI.onTransferProgress((data) => {
       if (fileNameRef.current && data.fileName !== fileNameRef.current) return;
+
+      if (
+        data.status === "error" &&
+        (data.errorCode === "connection_lost" || data.errorCode === "timeout")
+      ) {
+        setTransfer(null);
+        fileNameRef.current = null;
+        return;
+      }
 
       setTransfer({
         fileName: data.fileName,
@@ -55,23 +65,57 @@ export function useTransfer(): UseTransferResult {
       deviceId: device.id,
     });
 
-    if (!result.success) {
+    if (result.success) {
       setTransfer((prev) =>
         prev
           ? {
               ...prev,
-              status: "error",
-              errorMessage: result.error ?? "Ocurrió un error desconocido.",
+              status: "complete",
+              progress: 1,
+              bytesSent: prev.totalBytes,
+              speed: 0,
+              errorMessage: undefined,
+              errorCode: undefined,
             }
           : null,
       );
+      return;
     }
+
+    setTransfer((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "error",
+            errorMessage: result.error ?? "Ocurrió un error desconocido.",
+            errorCode: "connection_lost",
+          }
+        : null,
+    );
   };
 
-  const cancelTransfer = () => {
+  const cancelTransfer = async () => {
+    fileNameRef.current = null;
+    try {
+      await window.electronAPI.cancelTransfer();
+    } catch {
+      // ignored
+    }
+    setTransfer((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "cancelled",
+            progress: Math.min(prev.progress, 1),
+          }
+        : null,
+    );
+  };
+
+  const dismissTransfer = () => {
     fileNameRef.current = null;
     setTransfer(null);
   };
 
-  return { transfer, startTransfer, cancelTransfer };
+  return { transfer, startTransfer, cancelTransfer, dismissTransfer };
 }

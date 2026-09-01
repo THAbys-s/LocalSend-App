@@ -13,12 +13,17 @@ export function TransferMonitor({ transfer, onDismiss }: Props) {
 
   const isComplete = transfer.status === "complete";
   const isError = transfer.status === "error";
+  const isCancelled = transfer.status === "cancelled";
   const isPaused = transfer.status === "paused";
+  const isTerminal = isComplete || isError || isCancelled;
 
   const percentComplete = (transfer.progress * 100).toFixed(1);
+  const currentSpeed = Number.isFinite(transfer.speed) ? transfer.speed : 0;
   const timeRemaining =
-    transfer.speed > 0
-      ? formatTime((transfer.totalBytes - transfer.bytesSent) / transfer.speed)
+    transfer.status === "transferring" &&
+    currentSpeed > 0 &&
+    transfer.totalBytes > transfer.bytesSent
+      ? formatTime((transfer.totalBytes - transfer.bytesSent) / currentSpeed)
       : "--";
 
   return (
@@ -37,7 +42,7 @@ export function TransferMonitor({ transfer, onDismiss }: Props) {
           {transfer.fileName}
         </h3>
         <p style={styles.statusText}>{getStatusText(transfer)}</p>
-        {(isComplete || isError) && (
+        {isTerminal && (
           <button
             style={{
               ...styles.cancelBtn,
@@ -85,11 +90,13 @@ export function TransferMonitor({ transfer, onDismiss }: Props) {
         )}
       </div>
 
-      {isError && (
+      {(isError || isCancelled) && (
         <p style={styles.error}>
           {" "}
           {transfer.errorMessage ??
-            "La transferencia falló. Revisá tu conexión."}{" "}
+            (isCancelled
+              ? "La transferencia fue cancelada."
+              : "La transferencia falló. Revisá tu conexión.")}{" "}
         </p>
       )}
     </div>
@@ -112,6 +119,9 @@ function getStatusText(transfer: Transfer) {
 
     case "complete":
       return "Transferencia completada.";
+
+    case "cancelled":
+      return "Transferencia cancelada.";
 
     case "error":
       switch (transfer.errorCode) {

@@ -40,8 +40,14 @@ function requestHandshake(
     let buffer = Buffer.alloc(0);
     const timeout = setTimeout(() => {
       socket.destroy();
-      reject(new Error("Timeout esperando respuesta del receptor"));
+      reject(new Error("Sin conexión de red"));
     }, NEGOTIATION_TIMEOUT_MS);
+
+    socket.setTimeout(15000);
+    socket.on("timeout", () => {
+      socket.destroy();
+      reject(new Error("Sin conexión de red"));
+    });
 
     socket.on("data", (chunk: Buffer) => {
       buffer = Buffer.concat([buffer, chunk]);
@@ -120,6 +126,11 @@ export function registerTransferHandlers(
     });
   });
 
+  ipcMain.handle("transfer:cancel", () => {
+    cancelActiveTransfers();
+    return { success: true };
+  });
+
   ipcMain.handle(
     channels.transferRespond,
     (
@@ -193,6 +204,9 @@ export function registerTransferHandlers(
             let bytesSent = 0;
             let lastTime = Date.now();
             let lastBytes = 0;
+            let lastKnownSpeed = 0;
+            let transferFinished = false;
+            let readStream: fs.ReadStream | null = null;
 
             const REASON_MESSAGES: Record<string, string> = {
               no_folder:
@@ -218,26 +232,29 @@ export function registerTransferHandlers(
                   }) + "\n";
 
                 client.write(headerLine, () => {
-                  const readStream = fs.createReadStream(filePath);
+                  readStream = fs.createReadStream(filePath);
 
                   readStream.on("data", (chunk: Buffer) => {
+                    if (transferFinished) return;
+
                     bytesSent += chunk.length;
                     const now = Date.now();
                     const elapsed = now - lastTime;
                     const speed =
                       elapsed >= 500
                         ? ((bytesSent - lastBytes) / elapsed) * 1000
-                        : undefined;
+                        : lastKnownSpeed;
                     if (elapsed >= 500) {
                       lastTime = now;
                       lastBytes = bytesSent;
+                      lastKnownSpeed = speed;
                     }
 
                     mainWindow.webContents.send(channels.transferProgress, {
                       fileName,
                       bytesSent,
                       totalBytes,
-                      progress: bytesSent / totalBytes,
+                      progress: Math.min(bytesSent / totalBytes, 1),
                       speed,
                       status: "transferring",
                     });
@@ -245,6 +262,8 @@ export function registerTransferHandlers(
 
                   readStream.pipe(client);
                   readStream.on("error", (err) => {
+                    if (transferFinished) return;
+                    transferFinished = true;
                     client.destroy();
                     resolve({ success: false, error: err.message });
                   });
@@ -255,45 +274,100 @@ export function registerTransferHandlers(
 
             let receiverError: string | null = null;
 
+            client.setTimeout(15000);
+            client.on("timeout", () => {
+              if (transferFinished) return;
+              transferFinished = true;
+              client.destroy();
+              finishTransfer(
+                false,
+                "Se perdió la conexión de red durante la transferencia.",
+                "connection_lost",
+              );
+            });
+
             client.on("data", (chunk: Buffer) => {
               try {
                 const msg = JSON.parse(chunk.toString("utf8"));
                 if (msg.type === "error") {
                   receiverError =
                     REASON_MESSAGES[msg.reason] ?? REASON_MESSAGES.unknown;
+                  if (!transferFinished) {
+                    readStream?.destroy();
+                    client.destroy();
+                    finishTransfer(false, receiverError, "rejected");
+                  }
                 }
               } catch (error) {
                 void error;
               }
             });
 
+            const finishTransfer = (
+              success: boolean,
+              error?: string,
+              code?: "connection_lost" | "rejected",
+            ) => {
+              if (transferFinished) return;
+              transferFinished = true;
+
+              if (success) {
+                mainWindow.webContents.send(channels.transferProgress, {
+                  fileName,
+                  bytesSent: totalBytes,
+                  totalBytes,
+                  progress: 1,
+                  speed: 0,
+                  status: "complete",
+                });
+                resolve({ success: true });
+                return;
+              }
+
+              mainWindow.webContents.send(channels.transferProgress, {
+                fileName,
+                bytesSent,
+                totalBytes,
+                progress: Math.min(bytesSent / totalBytes, 1),
+                speed: 0,
+                status: "error",
+                error: error ?? "Transferencia fallida.",
+                errorCode: code ?? "connection_lost",
+              });
+              resolve({
+                success: false,
+                error: error ?? "Transferencia fallida.",
+              });
+            };
+
             client.on("close", () => {
               activeSockets.delete(client);
               const wasCancelled = cancelledSockets.delete(client);
               if (wasCancelled) {
-                resolve({
-                  success: false,
-                  error: "Transferencia cancelada: conexión de red perdida",
-                });
+                finishTransfer(false, "Transferencia cancelada", "rejected");
                 return;
               }
               if (receiverError) {
-                resolve({ success: false, error: receiverError });
+                finishTransfer(false, receiverError, "rejected");
                 return;
               }
-              mainWindow.webContents.send(channels.transferProgress, {
-                fileName,
-                bytesSent: totalBytes,
-                totalBytes,
-                progress: 1,
-                speed: 0,
-                status: "complete",
-              });
-              resolve({ success: true });
+              if (bytesSent < totalBytes) {
+                finishTransfer(
+                  false,
+                  "Se perdió la conexión de red durante la transferencia.",
+                  "connection_lost",
+                );
+                return;
+              }
+              finishTransfer(true);
             });
 
             client.on("error", (err) => {
-              resolve({ success: false, error: err.message });
+              activeSockets.delete(client);
+              if (transferFinished) return;
+              if (!cancelledSockets.has(client)) {
+                finishTransfer(false, err.message, "connection_lost");
+              }
             });
           } catch (error) {
             resolve({

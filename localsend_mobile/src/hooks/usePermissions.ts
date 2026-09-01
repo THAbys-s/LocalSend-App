@@ -13,7 +13,7 @@ export function usePermissions() {
     const result = await MediaLibrary.requestPermissionsAsync();
     const granted = result.status === "granted";
 
-    if (!granted && (!result.canAskAgain || result.status === "restricted")) {
+    if (!granted) {
       Alert.alert(
         "Permiso bloqueado",
         "Para continuar, habilita el acceso a la galería desde Ajustes de la app.",
@@ -31,16 +31,14 @@ export function usePermissions() {
     const perm = await MediaLibrary.requestPermissionsAsync();
     if (perm.status === "granted") return true;
 
-    if (!perm.canAskAgain || perm.status === "restricted") {
-      Alert.alert(
-        "Acceso bloqueado",
-        "Necesitamos permiso para seleccionar la carpeta de destino. Actívalo desde Ajustes.",
-        [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Ir a Ajustes", onPress: openSettings },
-        ],
-      );
-    }
+    Alert.alert(
+      "Acceso bloqueado",
+      "Necesitamos permiso para seleccionar la carpeta de destino. Actívalo desde Ajustes.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Ir a Ajustes", onPress: openSettings },
+      ],
+    );
 
     return false;
   };

@@ -25,16 +25,38 @@ export function registerTransferNotifications(
       timeoutType: "never",
     });
 
+    const openIncomingTransfer = () => {
+      if (!win) return;
+
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+      win.webContents.send("transfer:request", data);
+    };
+
+    const acceptWithoutCollision = () => {
+      wsService.accept(data.deviceId, "keepBoth");
+      win?.webContents.send("transfer:resolved-by-notification", {
+        deviceId: data.deviceId,
+        accepted: true,
+      });
+      if (win) {
+        if (win.isMinimized()) win.restore();
+        win.show();
+        win.focus();
+      }
+    };
+
     notification.on("action", (_event, index) => {
       const accepted = index === 0;
 
       if (accepted) {
-        if (win) {
-          if (win.isMinimized()) win.restore();
-          win.show();
-          win.focus();
-          win.webContents.send("transfer:request", data);
+        if (data.hasCollision) {
+          openIncomingTransfer();
+          return;
         }
+
+        acceptWithoutCollision();
         return;
       }
 
@@ -47,12 +69,12 @@ export function registerTransferNotifications(
     });
 
     notification.on("click", () => {
-      if (win) {
-        if (win.isMinimized()) win.restore();
-        win.show();
-        win.focus();
-        win.webContents.send("transfer:request", data);
+      if (data.hasCollision) {
+        openIncomingTransfer();
+        return;
       }
+
+      acceptWithoutCollision();
     });
 
     notification.show();

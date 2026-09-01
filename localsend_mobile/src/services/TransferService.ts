@@ -1,6 +1,7 @@
 import TcpSocket from "react-native-tcp-socket";
 import ReactNativeBlobUtil from "react-native-blob-util";
 import NetInfo from "@react-native-community/netinfo";
+import * as FileSystem from "expo-file-system/legacy";
 import { getDeviceAlias, getDeviceId } from "../utils/deviceInfo";
 import { Buffer } from "@craftzdog/react-native-buffer";
 
@@ -100,7 +101,13 @@ class TransferService {
         throw new Error("Sin conexión de red");
       }
       this.networkUnsubscribe = NetInfo.addEventListener((state) => {
-        if (state.isConnected === false) {
+        const offline =
+          !state.isConnected ||
+          state.isConnected === null ||
+          state.type === "none" ||
+          state.type === "unknown";
+
+        if (offline) {
           this.networkLost = true;
           this.cancel();
         }
@@ -164,8 +171,9 @@ class TransferService {
 
       let buffer = Buffer.alloc(0);
       const timeout = setTimeout(() => {
+        this.networkLost = true;
         socket.destroy();
-        reject(new Error("Timeout de conexión"));
+        reject(new Error("Sin conexión de red"));
       }, NEGOTIATION_TIMEOUT_MS);
       let finished = false;
       socket.on("data", (chunk: any) => {
@@ -263,17 +271,21 @@ class TransferService {
         } catch {}
       });
 
-      client.on("error", (e: Error) => reject(new Error(`TCP: ${e.message}`)));
-      client.setTimeout(60000);
+      client.on("error", (e: Error) => {
+        this.networkLost = true;
+        reject(new Error(`TCP: ${e.message}`));
+      });
+      client.setTimeout(15000);
       client.on("timeout", () => {
+        this.networkLost = true;
         client.destroy();
-        reject(new Error("TCP timeout"));
+        reject(new Error("Sin conexión de red"));
       });
     });
   }
 
   private async _getFileSize(file: FileToSend): Promise<number> {
-    const path = this._getFilePath(file.uri);
+    const path = await this._ensureLocalReadableFile(file.uri);
 
     try {
       const stat = await ReactNativeBlobUtil.fs.stat(path);
@@ -287,7 +299,58 @@ class TransferService {
   }
 
   private _getFilePath(uri: string): string {
-    return uri.startsWith("content://") ? uri : uri.replace("file://", "");
+    if (uri.startsWith("content://")) return uri;
+    return uri.startsWith("file://") ? uri.replace("file://", "") : uri;
+  }
+
+  private async _ensureLocalReadableFile(uri: string): Promise<string> {
+    if (!uri.startsWith("content://")) {
+      return this._getFilePath(uri);
+    }
+
+    const sanitizedName = (
+      uri.split("/").pop() ?? `transfer-${Date.now()}`
+    ).replace(/[^a-zA-Z0-9._-]/g, "_");
+    const destination = `${FileSystem.cacheDirectory}${sanitizedName}`;
+
+    try {
+      const info = await FileSystem.getInfoAsync(destination);
+      if (info.exists) return destination;
+    } catch {
+      // no-op
+    }
+
+    await FileSystem.copyAsync({
+      from: uri,
+      to: destination,
+    });
+
+    return destination;
+  }
+
+  private async _streamFileChunks(
+    uri: string,
+    onChunk: (chunk: Buffer) => void,
+  ): Promise<void> {
+    const path = await this._ensureLocalReadableFile(uri);
+    const stream = await ReactNativeBlobUtil.fs.readStream(
+      path,
+      "base64",
+      CHUNK,
+    );
+
+    await new Promise<void>((resolve, reject) => {
+      stream.open();
+      stream.onData((chunk: any) => {
+        const value =
+          typeof chunk === "string"
+            ? chunk
+            : Buffer.from(chunk).toString("base64");
+        onChunk(Buffer.from(value, "base64"));
+      });
+      stream.onEnd(() => resolve());
+      stream.onError((err: any) => reject(err));
+    });
   }
 
   private async _stream(
@@ -304,105 +367,51 @@ class TransferService {
       }) + "\n";
     await this._write(client, Buffer.from(header, "utf8"));
 
-    const path = this._getFilePath(file.uri);
     let bytesSent = 0;
     let lastTime = Date.now();
     let lastBytes = 0;
     let lastProgressUpdate = 0;
+    let writeQueue: Promise<void> = Promise.resolve();
 
-    return new Promise((resolve, reject) => {
-      let finished = false;
-      let writeQueue: Promise<void> = Promise.resolve();
+    await this._streamFileChunks(file.uri, (chunk) => {
+      writeQueue = writeQueue
+        .then(() => this._write(client, chunk))
+        .then(() => {
+          bytesSent += chunk.length;
 
-      ReactNativeBlobUtil.fs
-        .readStream(path, "base64", CHUNK)
-        .then((stream: any) => {
-          stream.open();
+          const now = Date.now();
+          const elapsed = now - lastTime;
+          const speed =
+            elapsed >= 500
+              ? ((bytesSent - lastBytes) / elapsed) * 1000
+              : (this.current?.speed ?? 0);
+          if (elapsed >= 500) {
+            lastTime = now;
+            lastBytes = bytesSent;
+          }
 
-          stream.onData((chunk: string) => {
-            if (this.cancelled) {
-              if (!finished) {
-                finished = true;
-                stream.close();
-                reject(new Error("Cancelado"));
-              }
-              return;
-            }
+          if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL_MS) {
+            lastProgressUpdate = now;
+            this._emit({
+              ...this.current!,
+              status: "sending",
+              progress: bytesSent / file.size,
+              bytesSent,
+              totalBytes: file.size,
+              speed,
+            });
+          }
+        });
+    });
 
-            const buf = Buffer.from(chunk, "base64");
-
-            writeQueue = writeQueue
-              .then(() => this._write(client, buf))
-              .then(() => {
-                bytesSent += buf.length;
-
-                const now = Date.now();
-                const elapsed = now - lastTime;
-                const speed =
-                  elapsed >= 500
-                    ? ((bytesSent - lastBytes) / elapsed) * 1000
-                    : (this.current?.speed ?? 0);
-                if (elapsed >= 500) {
-                  lastTime = now;
-                  lastBytes = bytesSent;
-                }
-
-                if (now - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL_MS) {
-                  lastProgressUpdate = now;
-                  this._emit({
-                    ...this.current!,
-                    status: "sending",
-                    progress: bytesSent / file.size,
-                    bytesSent,
-                    totalBytes: file.size,
-                    speed,
-                  });
-                }
-              })
-              .catch((err) => {
-                if (!finished) {
-                  finished = true;
-                  stream.close();
-                  reject(err);
-                }
-              });
-          });
-
-          stream.onError((err: any) => {
-            if (!finished) {
-              finished = true;
-              reject(
-                new Error(
-                  typeof err === "string" ? err : "Error leyendo el archivo",
-                ),
-              );
-            }
-          });
-
-          stream.onEnd(() => {
-            writeQueue
-              .then(() => {
-                if (finished) return;
-                finished = true;
-                this._emit({
-                  ...this.current!,
-                  status: "sending",
-                  progress: 1,
-                  bytesSent: file.size,
-                  totalBytes: file.size,
-                  speed: this.current?.speed ?? 0,
-                });
-                resolve();
-              })
-              .catch((err) => {
-                if (!finished) {
-                  finished = true;
-                  reject(err);
-                }
-              });
-          });
-        })
-        .catch(reject);
+    await writeQueue;
+    this._emit({
+      ...this.current!,
+      status: "sending",
+      progress: 1,
+      bytesSent: file.size,
+      totalBytes: file.size,
+      speed: this.current?.speed ?? 0,
     });
   }
 

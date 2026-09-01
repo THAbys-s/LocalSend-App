@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AvailabilityIndicator } from "./components/ui/AvailabilityIndicator";
 import { DeviceList } from "./components/device/DeviceList";
 import { TransferMonitor } from "./components/transfer/TransferMonitor";
@@ -20,7 +20,8 @@ import { Localsend } from "@thesvg/react";
 
 export default function App() {
   const { devices } = useDiscovery();
-  const { transfer, startTransfer, cancelTransfer } = useTransfer();
+  const { transfer, startTransfer, cancelTransfer, dismissTransfer } =
+    useTransfer();
   const [notifications, setNotifications] = useState<
     Array<{ id: string; message: string; type: "info" | "success" | "error" }>
   >([]);
@@ -32,6 +33,46 @@ export default function App() {
   const [selectedDevice, setSelectedDevice] = useState<DeviceInfo | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileToSend | null>(null);
   const { isActive } = useServer();
+  const lastTransferNotificationKey = useRef<string | null>(null);
+
+  const addNotification = (
+    message: string,
+    type: "info" | "success" | "error",
+  ) => {
+    const id = Date.now().toString();
+    setNotifications((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    }, 4000);
+  };
+
+  useEffect(() => {
+    if (!transfer) {
+      lastTransferNotificationKey.current = null;
+      return;
+    }
+
+    const notificationKey = `${transfer.fileName}:${transfer.status}`;
+    if (lastTransferNotificationKey.current === notificationKey) return;
+    lastTransferNotificationKey.current = notificationKey;
+
+    if (transfer.status === "complete") {
+      addNotification(`Archivo enviado: ${transfer.fileName}`, "success");
+      return;
+    }
+
+    if (transfer.status === "error") {
+      addNotification(
+        transfer.errorMessage ?? "La transferencia falló.",
+        "error",
+      );
+      return;
+    }
+
+    if (transfer.status === "cancelled") {
+      addNotification(`Transferencia cancelada: ${transfer.fileName}`, "info");
+    }
+  }, [transfer]);
 
   useEffect(() => {
     if (!window.electronAPI) return;
@@ -175,17 +216,6 @@ export default function App() {
     }
   };
 
-  const addNotification = (
-    message: string,
-    type: "info" | "success" | "error",
-  ) => {
-    const id = Date.now().toString();
-    setNotifications((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-    }, 4000);
-  };
-
   return (
     <div style={styles.root}>
       <header style={styles.header}>
@@ -217,7 +247,7 @@ export default function App() {
             <TransferMonitor
               transfer={transfer}
               onCancel={cancelTransfer}
-              onDismiss={cancelTransfer}
+              onDismiss={dismissTransfer}
             />
           )}
         </section>
@@ -229,7 +259,13 @@ export default function App() {
             selectedDevice={selectedDevice}
             onSend={handleSend}
             onCancel={cancelTransfer}
-            isTransferring={!!transfer}
+            isTransferring={
+              transfer
+                ? ["connecting", "transferring", "waiting", "paused"].includes(
+                    transfer.status,
+                  )
+                : false
+            }
           />
         </aside>
       </main>
