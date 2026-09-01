@@ -23,4 +23,10 @@ web-build/
 .DS_Store
 build/
 .gradle/
+.kotlin/
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/**/.cxx/
+android/local.properties
 local.properties
