@@ -113,7 +113,6 @@ export function registerTransferHandlers(
     };
   });
   wsService.on("transfer-request", (data) => {
-    console.log("[IPC] Enviando transfer-request al renderer");
     mainWindow.webContents.send(channels.transferRequest, {
       deviceId: data.deviceId,
       alias: data.alias,
@@ -279,13 +278,9 @@ export function registerTransferHandlers(
                 return;
               }
               if (receiverError) {
-                console.log(
-                  `[IPC] Transferencia rechazada por el receptor: ${receiverError}`,
-                );
                 resolve({ success: false, error: receiverError });
                 return;
               }
-              console.log(`[IPC] Archivo enviado: ${fileName} -> ${targetIp}`);
               mainWindow.webContents.send(channels.transferProgress, {
                 fileName,
                 bytesSent: totalBytes,

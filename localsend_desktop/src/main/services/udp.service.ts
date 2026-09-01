@@ -92,8 +92,6 @@ export class UdpDiscoveryService {
     this.socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
 
     this.socket.on("error", (err) => {
-      console.error("[UDP] Error en socket:", err.message);
-
       this.serverStatus.setUdp(false);
 
       this.onError?.(err);
@@ -120,7 +118,6 @@ export class UdpDiscoveryService {
         this.devices.set(device.id, device);
 
         if (isNewDevice) {
-          console.log(`[UDP] Beacon de: ${device.alias} (${device.ip})`);
           this.onDeviceFound?.(device);
         }
 
@@ -134,10 +131,6 @@ export class UdpDiscoveryService {
 
       this.serverStatus.setUdp(hasNetworkInterface());
 
-      console.log(`[UDP] Servidor escuchando en puerto ${UDP_PORT}`);
-      console.log(
-        `[UDP] Este dispositivo: ${this.myInfo.alias} | ${this.myInfo.ip} | ID: ${this.myInfo.id.slice(0, 8)}...`,
-      );
       this.startBeacon();
       this.onReady?.();
     });
@@ -155,9 +148,7 @@ export class UdpDiscoveryService {
         version: this.myInfo.version,
       };
       const msg = Buffer.from(JSON.stringify(beacon));
-      this.socket?.send(msg, 0, msg.length, UDP_PORT, BROADCAST_ADDR, (err) => {
-        if (err) console.error("[UDP] Error enviando beacon:", err.message);
-      });
+      this.socket?.send(msg, 0, msg.length, UDP_PORT, BROADCAST_ADDR, () => {});
     };
     send();
     this.beaconTimer = setInterval(send, BEACON_INTERVAL_MS);
@@ -168,7 +159,6 @@ export class UdpDiscoveryService {
     if (existing) clearTimeout(existing);
 
     const timer = setTimeout(() => {
-      console.log(`[UDP] Dispositivo perdido: ${device.alias} (${device.ip})`);
       this.onDeviceLost?.(device.id);
       this.devices.delete(device.id);
       this.deviceTimeouts.delete(device.id);
@@ -194,8 +184,6 @@ export class UdpDiscoveryService {
     this.socket = null;
 
     this.serverStatus.setUdp(false);
-
-    console.log("[UDP] Servicio detenido");
   }
 
   getMyInfo(): DeviceInfo {

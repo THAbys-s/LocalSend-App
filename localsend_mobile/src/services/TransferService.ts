@@ -279,8 +279,8 @@ class TransferService {
       const stat = await ReactNativeBlobUtil.fs.stat(path);
       const size = Number(stat.size);
       if (Number.isFinite(size) && size >= 0) return size;
-    } catch (err) {
-      console.warn("[Transfer] No se pudo consultar el tamaño real:", err);
+    } catch {
+      // no-op
     }
 
     return file.size;

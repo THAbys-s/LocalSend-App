@@ -75,8 +75,8 @@ class TransferReceiverService {
       this.accepted.add(deviceId);
       setTimeout(() => this.accepted.delete(deviceId), 60000);
       p.socket.end();
-    } catch (err) {
-      console.warn("[Receiver] Error enviando accept:", err);
+    } catch {
+      // no-op
     }
   }
 
@@ -89,8 +89,8 @@ class TransferReceiverService {
       p.socket.end(payload);
       clearTimeout(p.timeout);
       this.pending.delete(deviceId);
-    } catch (err) {
-      console.warn("[Receiver] Error enviando reject:", err);
+    } catch {
+      // no-op
     }
   }
 
@@ -167,9 +167,7 @@ class TransferReceiverService {
 
     this.handshakeServer.listen(
       { port: HANDSHAKE_PORT, host: "0.0.0.0" },
-      () => {
-        console.log(`[Receiver] Handshake escuchando en ${HANDSHAKE_PORT}`);
-      },
+      () => {},
     );
   }
 
@@ -210,8 +208,6 @@ class TransferReceiverService {
               outputFile?.delete();
             } catch {}
 
-            console.error(err);
-
             this._emitError({
               reason: "write_error",
               fileName: header?.name,
@@ -242,26 +238,22 @@ class TransferReceiverService {
           try {
             header = JSON.parse(headerLine);
           } catch {
-            console.error("[Receiver] Header inválido, cerrando conexión");
             socket.destroy();
             return;
           }
 
           if (!header?.deviceId || !this.accepted.has(header.deviceId)) {
-            console.warn("[Receiver] Transferencia no aceptada");
             socket.destroy();
             return;
           }
 
           if (Paths.availableDiskSpace < header.size) {
-            console.warn("[Receiver] Espacio insuficiente");
             this._failTransfer(socket, "no_space", header.name);
             return;
           }
 
           const dirUri = await getDownloadDirUri();
           if (!dirUri) {
-            console.warn("[Receiver] No hay carpeta de destino configurada");
             this._failTransfer(socket, "no_folder", header.name);
             return;
           }
@@ -274,8 +266,7 @@ class TransferReceiverService {
             outputFile = destDir.createFile(resolvedName, header.mimeType);
 
             fileHandle = outputFile.open(FileMode.WriteOnly);
-          } catch (err) {
-            console.error("[Receiver] Error creando archivo:", err);
+          } catch {
             this._failTransfer(socket, "write_error", header.name);
             return;
           }
@@ -302,23 +293,17 @@ class TransferReceiverService {
               handle.close();
             } catch {}
 
-            console.log("[Receiver] Archivo recibido:", h.name);
-
             this.accepted.delete(h.deviceId);
             this.pending.delete(h.deviceId);
           })
-          .catch((err) => {
-            console.error("[Receiver] Error finalizando archivo:", err);
-
+          .catch(() => {
             try {
               handle.close();
             } catch {}
           });
       });
 
-      socket.on("error", (err: Error) => {
-        console.error("[Receiver] Socket error:", err.message);
-
+      socket.on("error", () => {
         writeQueue.finally(() => {
           try {
             outputFile?.delete();
@@ -327,9 +312,7 @@ class TransferReceiverService {
       });
     });
 
-    this.dataServer.listen({ port: DATA_PORT, host: "0.0.0.0" }, () => {
-      console.log(`[Receiver] Data escuchando en ${DATA_PORT}`);
-    });
+    this.dataServer.listen({ port: DATA_PORT, host: "0.0.0.0" }, () => {});
   }
 
   private _resolveCollision(dir: Directory, fileName: string): string {

@@ -9,12 +9,11 @@ const runHaptic = async (
 
   try {
     await action();
-  } catch (error) {
-    console.warn("Haptics no disponible, usando vibración nativa.", error);
+  } catch {
     try {
       fallback();
-    } catch (fallbackError) {
-      console.warn("Fallback de vibración falló.", fallbackError);
+    } catch {
+      // no-op
     }
   }
 };

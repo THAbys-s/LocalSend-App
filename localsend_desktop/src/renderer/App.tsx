@@ -37,7 +37,6 @@ export default function App() {
     if (!window.electronAPI) return;
 
     window.electronAPI.onTransferRequest((data) => {
-      console.log("[App] Incoming transfer request:", data);
       setIncomingTransfer(data);
       addNotification(`${data.alias} desea enviar: ${data.file.name}`, "info");
     });
@@ -147,8 +146,7 @@ export default function App() {
         "success",
       );
       setIncomingTransfer(null);
-    } catch (err) {
-      console.error("Error accepting transfer:", err);
+    } catch {
       addNotification("Error al aceptar la transferencia", "error");
     } finally {
       setRespondingTransfer(null);
@@ -170,8 +168,7 @@ export default function App() {
         "info",
       );
       setIncomingTransfer(null);
-    } catch (err) {
-      console.error("Error rejecting transfer:", err);
+    } catch {
       addNotification("Error al rechazar la transferencia", "error");
     } finally {
       setRespondingTransfer(null);

@@ -72,7 +72,6 @@ export function createTcpService(
 
         if (newlineIndex === -1) {
           if (headerBuffer.length > 16 * 1024) {
-            console.warn("[TCP] Header demasiado grande, cerrando conexión");
             socket.destroy();
           }
           return;
@@ -86,16 +85,11 @@ export function createTcpService(
         try {
           header = JSON.parse(headerLine);
         } catch {
-          console.error("[TCP] Header inválido, cerrando conexión");
           socket.destroy();
           return;
         }
 
         if (!header?.deviceId || !wsService.isAccepted(header.deviceId)) {
-          console.warn(
-            "[TCP] Transferencia rechazada: no aceptada por el usuario",
-            header?.deviceId,
-          );
           socket.destroy();
           return;
         }
@@ -105,7 +99,6 @@ export function createTcpService(
         const downloadDir = getDownloadDir();
         const destination = resolveCollision(downloadDir, header.name, policy);
         if (!destination) {
-          console.log(`[TCP] Archivo omitido por conflicto: ${header.name}`);
           socket.destroy();
           return;
         }
@@ -134,25 +127,20 @@ export function createTcpService(
         const h = header;
         writeStream.end(() => {
           wsService.consumeAcceptance(h.deviceId);
-          console.log("[TCP] Archivo recibido:", h.name);
         });
       }
     });
 
-    socket.on("error", (err) => {
-      console.error("[TCP] Socket error:", err.message);
+    socket.on("error", () => {
       writeStream?.destroy();
     });
   });
 
-  server.on("error", (err) => {
-    console.error("[TCP] Server error:", err.message);
+  server.on("error", () => {
     serverStatus.setTcp(false);
   });
 
   server.listen(port, () => {
-    console.log(`[TCP] Escuchando en ${port}`);
-
     serverStatus.setTcp(true);
   });
 

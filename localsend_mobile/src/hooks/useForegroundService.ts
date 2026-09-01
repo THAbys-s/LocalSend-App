@@ -47,8 +47,8 @@ export function useForegroundService(isActive: boolean, mensaje: string) {
 
       runningRef.current = true;
       foregroundRunning = true;
-    } catch (err) {
-      console.warn("[ForegroundService] Error al iniciar:", err);
+    } catch {
+      // no-op
     }
   }
 
@@ -56,8 +56,8 @@ export function useForegroundService(isActive: boolean, mensaje: string) {
     try {
       await notifee.stopForegroundService();
       await notifee.cancelNotification(NOTIFICATION_ID);
-    } catch (err) {
-      console.warn("[ForegroundService] Error al detener:", err);
+    } catch {
+      // no-op
     } finally {
       runningRef.current = false;
       foregroundRunning = false;

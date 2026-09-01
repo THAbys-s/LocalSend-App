@@ -27,9 +27,6 @@ export function registerTransferNotifications(
 
     notification.on("action", (_event, index) => {
       const accepted = index === 0;
-      console.log(
-        `[Notification] Resolución de transferencia desde toast: ${data.alias} -> ${accepted ? "aceptada" : "rechazada"}`,
-      );
 
       if (accepted) {
         if (win) {
@@ -50,9 +47,6 @@ export function registerTransferNotifications(
     });
 
     notification.on("click", () => {
-      console.log(
-        `[Notification] Click en toast de transferencia: ${data.alias}`,
-      );
       if (win) {
         if (win.isMinimized()) win.restore();
         win.show();
@@ -61,7 +55,6 @@ export function registerTransferNotifications(
       }
     });
 
-    console.log(`[Notification] Mostrando toast para: ${data.alias}`);
     notification.show();
   });
 
@@ -70,8 +63,5 @@ export function registerTransferNotifications(
     if (win) {
       win.webContents.send("transfer:request-expired", { deviceId, alias });
     }
-    console.log(
-      `[Notification] Solicitud de transferencia vencida para: ${alias}`,
-    );
   });
 }

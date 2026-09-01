@@ -40,13 +40,9 @@ export class WsTransferService {
 
   start(): void {
     this.server = net.createServer((socket) => {
-      console.log("[Handshake] Nueva conexión");
       let buffer = Buffer.alloc(0);
 
       const timeout = setTimeout(() => {
-        console.warn(
-          "[Handshake] Cliente no envió mensaje en 120s, desconectando",
-        );
         socket.destroy();
       }, NEGOTIATION_TIMEOUT_MS);
 
@@ -55,7 +51,6 @@ export class WsTransferService {
         const newlineIndex = buffer.indexOf(0x0a);
         if (newlineIndex === -1) {
           if (buffer.length > 16 * 1024) {
-            console.warn("[Handshake] Mensaje demasiado grande, cerrando");
             socket.destroy();
           }
           return;
@@ -71,14 +66,12 @@ export class WsTransferService {
           } else {
             socket.destroy();
           }
-        } catch (err) {
-          console.error("[Handshake] Error parsing message:", err);
+        } catch {
           socket.destroy();
         }
       });
 
-      socket.on("error", (err) => {
-        console.error("[Handshake] Error en socket:", err.message);
+      socket.on("error", () => {
         clearTimeout(timeout);
       });
 
@@ -90,14 +83,11 @@ export class WsTransferService {
         if (entry) {
           clearTimeout(entry[1].timeout);
           this.pendingTransfers.delete(entry[0]);
-          console.log(`[Handshake] Transferencia cancelada: ${entry[1].alias}`);
         }
       });
     });
 
     this.server.on("error", (err) => {
-      console.error("[Handshake] Server error:", err.message);
-
       this.serverStatus.setWs(false);
 
       this.onError?.(err);
@@ -106,7 +96,6 @@ export class WsTransferService {
     this.server.listen(this.port, () => {
       this.serverStatus.setWs(true);
 
-      console.log(`[Handshake] Servidor escuchando en puerto ${this.port}`);
       this.onReady?.();
     });
   }
@@ -121,8 +110,6 @@ export class WsTransferService {
 
     this.server?.close(() => {
       this.serverStatus.setWs(false);
-
-      console.log("[Handshake] Servidor detenido");
     });
     this.server = null;
   }
@@ -159,17 +146,11 @@ export class WsTransferService {
   ): void {
     const transfer = this.pendingTransfers.get(deviceId);
     if (!transfer) {
-      console.warn(
-        `[Handshake] No hay transferencia pendiente de: ${deviceId}`,
-      );
       return;
     }
     try {
       transfer.socket.write(
         JSON.stringify({ type: "accept", policy: collisionPolicy }) + "\n",
-      );
-      console.log(
-        `[Handshake] Transferencia aceptada: ${transfer.alias} (${deviceId.slice(0, 8)}...) | Política: ${collisionPolicy}`,
       );
       clearTimeout(transfer.timeout);
       this.acceptedTransfers.add(deviceId);
@@ -180,29 +161,25 @@ export class WsTransferService {
       }, NEGOTIATION_TIMEOUT_MS);
       this.pendingTransfers.delete(deviceId);
       transfer.socket.end();
-    } catch (err) {
-      console.error(`[Handshake] Error enviando accept a ${deviceId}:`, err);
+    } catch {
+      // ignored
     }
   }
 
   reject(deviceId: string, reason = "Rechazado por el usuario"): void {
     const transfer = this.pendingTransfers.get(deviceId);
     if (!transfer) {
-      console.warn(
-        `[Handshake] No hay transferencia pendiente de: ${deviceId}`,
-      );
       return;
     }
     try {
       const payload =
         JSON.stringify({ type: "reject", message: reason }) + "\n";
       transfer.socket.end(payload);
-      console.log(`[Handshake] Transferencia rechazada: ${transfer.alias}`);
       clearTimeout(transfer.timeout);
       this.pendingTransfers.delete(deviceId);
       this.acceptedTransfers.delete(deviceId);
-    } catch (err) {
-      console.error(`[Handshake] Error enviando reject a ${deviceId}:`, err);
+    } catch {
+      // ignored
     }
   }
 
@@ -231,10 +208,6 @@ export class WsTransferService {
       typeof file.size !== "number" ||
       typeof file.mimeType !== "string"
     ) {
-      console.error(
-        "[Handshake] Mensaje de transfer-request inválido:",
-        message,
-      );
       socket.write(
         JSON.stringify({ type: "error", message: "Formato inválido" }) + "\n",
       );
@@ -253,16 +226,9 @@ export class WsTransferService {
       hasCollision: fs.existsSync(path.join(downloadDir, file.name)),
     };
 
-    console.log(
-      `[Handshake] Transfer request de: ${alias} (${deviceId.slice(0, 8)}...) | Archivo: ${file.name} (${file.size} bytes)`,
-    );
-
     const timeout = setTimeout(() => {
       if (this.pendingTransfers.has(deviceId)) {
         const expiredTransfer = this.pendingTransfers.get(deviceId)!;
-        console.warn(
-          `[Handshake] Timeout esperando respuesta para: ${alias} (${deviceId.slice(0, 8)}...)`,
-        );
         socket.write(
           JSON.stringify({ type: "error", message: "Timeout" }) + "\n",
         );

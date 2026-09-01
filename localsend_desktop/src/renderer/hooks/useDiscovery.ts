@@ -13,8 +13,8 @@ export function useDiscovery(): UseDiscoveryResult {
       try {
         const current = await window.electronAPI.getDevices();
         setDevices(current);
-      } catch (err) {
-        console.error("[Discovery] Error cargando dispositivos:", err);
+      } catch {
+        setDevices([]);
       }
     };
 

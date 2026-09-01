@@ -105,9 +105,7 @@ export class DiscoveryService {
           },
         );
 
-        sock.on("error", (err: Error) => {
-          console.warn("[Discovery] socket error:", err.message);
-
+        sock.on("error", () => {
           if (this.running) {
             setTimeout(async () => {
               try {
