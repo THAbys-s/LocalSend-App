@@ -1,5 +1,7 @@
 import dgram from "dgram";
 import os from "os";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import type { DeviceInfo, DeviceOS, BeaconPayload } from "../../shared";
 import { ServerStatusService } from "./server-status.service";
 import { configStore } from "../store/config.store";
@@ -22,7 +24,27 @@ function getLocalIP(): string {
   return "127.0.0.1";
 }
 
-function hasNetworkInterface(): boolean {
+const execFileAsync = promisify(execFile);
+
+async function hasNetworkInterface(): Promise<boolean> {
+  if (process.platform === "win32") {
+    try {
+      const { stdout } = await execFileAsync(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-Command",
+          "@(Get-NetAdapter -Physical | Where-Object {$_.Status -eq 'Up'}).Count -gt 0",
+        ],
+        { windowsHide: true },
+      );
+
+      return stdout.trim().toLowerCase() === "true";
+    } catch {
+      return false;
+    }
+  }
+
   return Object.values(os.networkInterfaces()).some((iface) =>
     (iface ?? []).some(
       (info) =>
@@ -50,6 +72,7 @@ export class UdpDiscoveryService {
   private socket: dgram.Socket | null = null;
   private beaconTimer: NodeJS.Timeout | null = null;
   private networkTimer: NodeJS.Timeout | null = null;
+  private networkCheckInProgress = false;
 
   private deviceTimeouts = new Map<string, NodeJS.Timeout>();
   private devices = new Map<string, DeviceInfo>();
@@ -80,13 +103,22 @@ export class UdpDiscoveryService {
 
   start(): void {
     this.networkTimer = setInterval(() => {
-      const connected = hasNetworkInterface();
-      if (!connected) {
-        this.serverStatus.setUdp(false);
-        this.onNetworkLost?.();
-      } else if (this.socket) {
-        this.serverStatus.setUdp(true);
-      }
+      if (this.networkCheckInProgress) return;
+      this.networkCheckInProgress = true;
+
+      void hasNetworkInterface()
+        .then((connected) => {
+          this.serverStatus.setNetworkAvailable(connected);
+          if (!connected) {
+            this.serverStatus.setUdp(false);
+            this.onNetworkLost?.();
+          } else if (this.socket) {
+            this.serverStatus.setUdp(true);
+          }
+        })
+        .finally(() => {
+          this.networkCheckInProgress = false;
+        });
     }, 1000);
 
     this.socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
@@ -130,7 +162,10 @@ export class UdpDiscoveryService {
     this.socket.bind(UDP_PORT, () => {
       this.socket!.setBroadcast(true);
 
-      this.serverStatus.setUdp(hasNetworkInterface());
+      void hasNetworkInterface().then((connected) => {
+        this.serverStatus.setNetworkAvailable(connected);
+        this.serverStatus.setUdp(connected);
+      });
 
       this.startBeacon();
       this.onReady?.();
@@ -185,6 +220,7 @@ export class UdpDiscoveryService {
     this.socket = null;
 
     this.serverStatus.setUdp(false);
+    this.serverStatus.setNetworkAvailable(false);
   }
 
   getMyInfo(): DeviceInfo {

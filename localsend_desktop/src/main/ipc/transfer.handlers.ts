@@ -27,6 +27,7 @@ function requestHandshake(
   },
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    let settled = false;
     const socket = net.createConnection(
       { host: targetIp, port: handshakePort },
       () => {
@@ -38,15 +39,24 @@ function requestHandshake(
     activeSockets.add(socket);
 
     let buffer = Buffer.alloc(0);
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      activeSockets.delete(socket);
+      if (error) reject(error);
+      else resolve();
+    };
+
     const timeout = setTimeout(() => {
       socket.destroy();
-      reject(new Error("Sin conexión de red"));
-    }, NEGOTIATION_TIMEOUT_MS);
+      finish(new Error("Sin conexión de red"));
+    }, 15000);
 
     socket.setTimeout(15000);
     socket.on("timeout", () => {
       socket.destroy();
-      reject(new Error("Sin conexión de red"));
+      finish(new Error("Sin conexión de red"));
     });
 
     socket.on("data", (chunk: Buffer) => {
@@ -60,26 +70,26 @@ function requestHandshake(
         const msg = JSON.parse(line);
         if (msg.type === "accept") {
           socket.end();
-          resolve();
+          finish();
         } else if (msg.type === "reject") {
           const reason = msg.message ?? "Transferencia rechazada";
           socket.end();
-          reject(new Error(reason));
+          finish(new Error(reason));
         } else {
           const reason = msg.message ?? "Error del receptor";
           socket.end();
-          reject(new Error(reason));
+          finish(new Error(reason));
         }
       } catch {
         socket.destroy();
-        reject(new Error("Respuesta inválida del receptor"));
+        finish(new Error("Respuesta inválida del receptor"));
       }
     });
 
     socket.on("error", (err) => {
       clearTimeout(timeout);
       activeSockets.delete(socket);
-      reject(
+      finish(
         new Error(
           `No se pudo conectar a ${targetIp}:${handshakePort}: ${err.message}`,
         ),
@@ -88,6 +98,7 @@ function requestHandshake(
     socket.on("close", () => {
       activeSockets.delete(socket);
       cancelledSockets.delete(socket);
+      if (!settled) finish(new Error("Sin conexión de red"));
     });
   });
 }
@@ -210,6 +221,7 @@ export function registerTransferHandlers(
             let lastBytes = 0;
             let lastKnownSpeed = 0;
             let transferFinished = false;
+            let streamFinished = false;
             let readStream: fs.ReadStream | null = null;
 
             const REASON_MESSAGES: Record<string, string> = {
@@ -265,6 +277,9 @@ export function registerTransferHandlers(
                   });
 
                   readStream.pipe(client);
+                  readStream.on("end", () => {
+                    streamFinished = true;
+                  });
                   readStream.on("error", (err) => {
                     if (transferFinished) return;
                     client.destroy();
@@ -277,7 +292,7 @@ export function registerTransferHandlers(
 
             let receiverError: string | null = null;
 
-            client.setTimeout(15000);
+            client.setTimeout(60000);
             client.on("timeout", () => {
               if (transferFinished) return;
               client.destroy();
@@ -353,7 +368,7 @@ export function registerTransferHandlers(
                 finishTransfer(false, receiverError, "rejected");
                 return;
               }
-              if (bytesSent < totalBytes) {
+              if (!streamFinished && bytesSent < totalBytes) {
                 finishTransfer(
                   false,
                   "Se perdió la conexión de red durante la transferencia.",

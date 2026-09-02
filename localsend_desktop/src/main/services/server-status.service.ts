@@ -14,6 +14,7 @@ export class ServerStatusService {
 
   private listeners = new Set<ServerStatusListener>();
   private lastActive = false;
+  private networkAvailable = false;
 
   onStatusChange(listener: ServerStatusListener): void {
     this.listeners.add(listener);
@@ -45,12 +46,24 @@ export class ServerStatusService {
     this.notify();
   }
 
+  setNetworkAvailable(active: boolean): void {
+    if (this.networkAvailable === active) return;
+
+    this.networkAvailable = active;
+    this.notify();
+  }
+
   getStatus(): Readonly<ServicesStatus> {
     return { ...this.status };
   }
 
   isActive(): boolean {
-    return this.status.udp && this.status.ws && this.status.tcp;
+    return (
+      this.networkAvailable &&
+      this.status.udp &&
+      this.status.ws &&
+      this.status.tcp
+    );
   }
 
   reset(): void {
@@ -59,6 +72,7 @@ export class ServerStatusService {
       ws: false,
       tcp: false,
     };
+    this.networkAvailable = false;
 
     this.notify(true);
   }
