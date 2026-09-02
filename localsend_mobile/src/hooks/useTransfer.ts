@@ -29,7 +29,7 @@ export function useTransfer(): UseTransferResult {
         p.status === "error" && "errorKind" in p && p.errorKind === "network";
 
       if (shouldAutoCloseOnError) {
-        setProgress(null);
+        setProgress({ ...p });
         hapticError();
         return;
       }

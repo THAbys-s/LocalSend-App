@@ -18,6 +18,7 @@ declare global {
         reason?: string,
         collisionPolicy?: CollisionPolicy,
       ) => Promise<{ success: boolean }>;
+      checkTransferCollision: (fileName: string) => Promise<boolean>;
       removeAllListeners: (channel: string) => void;
       sendFile: (
         payload: SendFilePayload,

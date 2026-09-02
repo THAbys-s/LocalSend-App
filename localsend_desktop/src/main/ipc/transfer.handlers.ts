@@ -156,6 +156,10 @@ export function registerTransferHandlers(
     },
   );
 
+  ipcMain.handle("transfer:check-collision", (_event, fileName: string) =>
+    wsService.hasFileCollision(fileName),
+  );
+
   ipcMain.handle(
     channels.sendFile,
     async (_event, payload: SendFilePayload) => {
@@ -263,9 +267,8 @@ export function registerTransferHandlers(
                   readStream.pipe(client);
                   readStream.on("error", (err) => {
                     if (transferFinished) return;
-                    transferFinished = true;
                     client.destroy();
-                    resolve({ success: false, error: err.message });
+                    finishTransfer(false, err.message, "connection_lost");
                   });
                 });
               },
@@ -277,7 +280,6 @@ export function registerTransferHandlers(
             client.setTimeout(15000);
             client.on("timeout", () => {
               if (transferFinished) return;
-              transferFinished = true;
               client.destroy();
               finishTransfer(
                 false,

@@ -66,7 +66,7 @@ export class ServerStatusService {
   private notify(force = false): void {
     const active = this.isActive();
 
-    if (!force && active === this.lastActive) {
+    if (!force && active === this.lastActive && this.listeners.size === 0) {
       return;
     }
 

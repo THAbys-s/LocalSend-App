@@ -92,6 +92,7 @@ export class UdpDiscoveryService {
     this.socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
 
     this.socket.on("error", (err) => {
+      console.error("[UDP] Error", err);
       this.serverStatus.setUdp(false);
 
       this.onError?.(err);

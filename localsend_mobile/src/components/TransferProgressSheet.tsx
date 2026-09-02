@@ -138,6 +138,20 @@ export function TransferProgressSheet({
         {STATUS_LABEL[progress.status] ?? progress.status}
       </Text>
 
+      {isError && (
+        <Text
+          style={[
+            styles.errorMessage,
+            { color: colors.error, fontSize: t.sizes.sm },
+          ]}
+        >
+          {progress.errorMessage ??
+            (progress.status === "rejected"
+              ? "La transferencia fue rechazada."
+              : "La transferencia falló.")}
+        </Text>
+      )}
+
       {/* Progress bar */}
       <View
         style={[
@@ -244,6 +258,9 @@ const styles = StyleSheet.create({
   },
   fileSize: {},
   statusLabel: {
+    marginBottom: 10,
+  },
+  errorMessage: {
     marginBottom: 10,
   },
   barTrack: {

@@ -60,6 +60,7 @@ export function useDiscovery(): UseDiscoveryResult {
     }
 
     if (running.current) {
+      setDevices(discoveryService.getDevices());
       discoveryService.ping().catch(console.error);
       return;
     }
@@ -75,6 +76,7 @@ export function useDiscovery(): UseDiscoveryResult {
       unsubscribeRef.current = unsub;
 
       await discoveryService.start();
+      setDevices(discoveryService.getDevices());
     } catch (err: any) {
       running.current = false;
       setStatus("error");

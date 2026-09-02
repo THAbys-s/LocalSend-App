@@ -65,7 +65,6 @@ export class DiscoveryService {
     this.socket = null;
 
     this.devices.clear();
-    this.listeners.clear();
   }
 
   addListener(fn: Listener): () => void {
@@ -126,12 +125,15 @@ export class DiscoveryService {
   }
 
   private _startBeaconLoop(): void {
-    this._sendBeacon();
-    this.beaconTimer = setInterval(() => this._sendBeacon(), BEACON_INTERVAL);
+    void this._sendBeacon().catch(() => {});
+    this.beaconTimer = setInterval(() => {
+      void this._sendBeacon().catch(() => {});
+    }, BEACON_INTERVAL);
   }
 
   private async _sendBeacon(): Promise<void> {
-    if (!this.socket) return;
+    const socket = this.socket;
+    if (!socket) return;
 
     const payload = Buffer.from(
       JSON.stringify({
@@ -148,7 +150,16 @@ export class DiscoveryService {
 
     const send = (addr: string) =>
       new Promise<void>((res) => {
-        this.socket!.send(payload, 0, payload.length, PORT, addr, () => res());
+        if (this.socket !== socket) {
+          res();
+          return;
+        }
+
+        try {
+          socket.send(payload, 0, payload.length, PORT, addr, () => res());
+        } catch {
+          res();
+        }
       });
 
     await send(BROADCAST_ADDR);

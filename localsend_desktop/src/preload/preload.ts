@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
       reason,
       collisionPolicy,
     }),
+  checkTransferCollision: (fileName: string) =>
+    ipcRenderer.invoke("transfer:check-collision", fileName),
   removeAllListeners: (channel: string) =>
     ipcRenderer.removeAllListeners(channel),
   getPathForFile: (file: File) => webUtils.getPathForFile(file),

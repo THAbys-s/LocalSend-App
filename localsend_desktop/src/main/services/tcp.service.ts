@@ -13,13 +13,11 @@ interface TransferHeader {
   policy?: "replace" | "keepBoth" | "skip";
 }
 
-function getDownloadDir(): string {
+function getDownloadDir(): string | null {
   const stored = configStore.get("downloadDir") as string | undefined;
-  const dir: string =
-    stored && stored.trim() !== ""
-      ? stored
-      : path.join(process.cwd(), "downloads");
+  if (!stored || stored.trim() === "") return null;
 
+  const dir = stored;
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -97,6 +95,13 @@ export function createTcpService(
         const policy =
           wsService.getCollisionPolicy(header.deviceId) ?? "keepBoth";
         const downloadDir = getDownloadDir();
+        if (!downloadDir) {
+          socket.end(
+            JSON.stringify({ type: "error", reason: "no_folder" }) + "\n",
+          );
+          return;
+        }
+
         const destination = resolveCollision(downloadDir, header.name, policy);
         if (!destination) {
           socket.destroy();
@@ -136,7 +141,8 @@ export function createTcpService(
     });
   });
 
-  server.on("error", () => {
+  server.on("error", (err) => {
+    console.error(`[TCP] Error en el puerto ${port}`, err);
     serverStatus.setTcp(false);
   });
 

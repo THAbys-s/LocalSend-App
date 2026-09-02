@@ -80,6 +80,17 @@ export default function App() {
     window.electronAPI.onTransferRequest((data) => {
       setIncomingTransfer(data);
       addNotification(`${data.alias} desea enviar: ${data.file.name}`, "info");
+
+      window.electronAPI
+        .checkTransferCollision(data.file.name)
+        .then((hasCollision) => {
+          setIncomingTransfer((current) =>
+            current?.deviceId === data.deviceId
+              ? { ...current, hasCollision }
+              : current,
+          );
+        })
+        .catch(() => {});
     });
 
     window.electronAPI.onTransferRequestExpired(({ deviceId, alias }) => {
@@ -176,6 +187,23 @@ export default function App() {
 
     setRespondingTransfer(incomingTransfer.deviceId);
     try {
+      const hasCollision = await window.electronAPI.checkTransferCollision(
+        incomingTransfer.file.name,
+      );
+
+      if (hasCollision && !incomingTransfer.hasCollision) {
+        setIncomingTransfer((current) =>
+          current?.deviceId === incomingTransfer.deviceId
+            ? { ...current, hasCollision: true }
+            : current,
+        );
+        addNotification(
+          "El archivo ya existe. Elegí cómo resolver la colisión.",
+          "info",
+        );
+        return;
+      }
+
       await window.electronAPI.respondTransfer(
         incomingTransfer.deviceId,
         true,

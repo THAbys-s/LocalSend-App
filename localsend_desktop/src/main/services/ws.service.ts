@@ -88,6 +88,7 @@ export class WsTransferService {
     });
 
     this.server.on("error", (err) => {
+      console.error(`[WS] Error en el puerto ${this.port}`, err);
       this.serverStatus.setWs(false);
 
       this.onError?.(err);
@@ -191,6 +192,14 @@ export class WsTransferService {
     return this.acceptedPolicies.get(deviceId);
   }
 
+  hasFileCollision(fileName: string): boolean {
+    const downloadDir =
+      (configStore.get("downloadDir") as string | undefined) ||
+      path.join(process.cwd(), "downloads");
+
+    return fs.existsSync(path.join(downloadDir, fileName));
+  }
+
   consumeAcceptance(deviceId: string): void {
     this.acceptedTransfers.delete(deviceId);
     this.acceptedPolicies.delete(deviceId);
@@ -215,15 +224,11 @@ export class WsTransferService {
       return;
     }
 
-    const downloadDir =
-      (configStore.get("downloadDir") as string | undefined) ||
-      path.join(process.cwd(), "downloads");
-
     const transferData: TransferRequestData = {
       deviceId,
       alias,
       file: { name: file.name, size: file.size, mimeType: file.mimeType },
-      hasCollision: fs.existsSync(path.join(downloadDir, file.name)),
+      hasCollision: this.hasFileCollision(file.name),
     };
 
     const timeout = setTimeout(() => {

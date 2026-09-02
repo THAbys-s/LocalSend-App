@@ -18,15 +18,6 @@ export function useTransfer(): UseTransferResult {
     window.electronAPI.onTransferProgress((data) => {
       if (fileNameRef.current && data.fileName !== fileNameRef.current) return;
 
-      if (
-        data.status === "error" &&
-        (data.errorCode === "connection_lost" || data.errorCode === "timeout")
-      ) {
-        setTransfer(null);
-        fileNameRef.current = null;
-        return;
-      }
-
       setTransfer({
         fileName: data.fileName,
         progress: data.progress,
@@ -59,11 +50,29 @@ export function useTransfer(): UseTransferResult {
       status: "connecting",
     });
 
-    const result = await window.electronAPI.sendFile({
-      filePath: file.path,
-      targetIp: device.ip,
-      deviceId: device.id,
-    });
+    let result;
+    try {
+      result = await window.electronAPI.sendFile({
+        filePath: file.path,
+        targetIp: device.ip,
+        deviceId: device.id,
+      });
+    } catch (error) {
+      setTransfer((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "error",
+              errorMessage:
+                error instanceof Error
+                  ? error.message
+                  : "La transferencia falló.",
+              errorCode: "connection_lost",
+            }
+          : null,
+      );
+      return;
+    }
 
     if (result.success) {
       setTransfer((prev) =>

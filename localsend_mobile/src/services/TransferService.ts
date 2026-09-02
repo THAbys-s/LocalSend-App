@@ -30,6 +30,7 @@ export interface TransferProgress {
   fileUri: string;
   fileMime: string;
   thumbnailUri?: string;
+  errorMessage?: string;
 }
 
 export interface FileToSend {
@@ -129,6 +130,10 @@ class TransferService {
         status: "error",
         progress: 0,
         errorKind: kind,
+        errorMessage:
+          kind === "network"
+            ? "Se perdió la conexión a la red."
+            : (err.message ?? "La transferencia falló."),
       } as any);
       throw err;
     } finally {

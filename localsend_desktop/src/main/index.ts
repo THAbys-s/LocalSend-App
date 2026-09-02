@@ -9,8 +9,6 @@ import { createTcpService } from "./services/tcp.service";
 import { channels, DEFAULT_TCP_PORT } from "../shared/constants";
 import { cancelActiveTransfers } from "./ipc/transfer.handlers";
 
-const TCP_PORT = Number(process.argv[2] ?? DEFAULT_TCP_PORT);
-
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
@@ -32,6 +30,10 @@ function createWindow(): BrowserWindow {
     },
   });
 
+  win.on("closed", () => {
+    if (mainWindow === win) mainWindow = null;
+  });
+
   registerTransferNotifications(wsService, () => mainWindow);
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -50,10 +52,14 @@ app.whenReady().then(() => {
   mainWindow = createWindow();
 
   serverStatus.onStatusChange((isActive, status) => {
-    mainWindow?.webContents.send(channels.serverStatus, { isActive, status });
+    console.log("[ServerStatus]", { isActive, ...status });
+
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+
+    mainWindow.webContents.send(channels.serverStatus, { isActive, status });
   });
 
-  createTcpService(serverStatus, TCP_PORT, wsService);
+  createTcpService(serverStatus, DEFAULT_TCP_PORT, wsService);
   udpService.onNetworkLost = cancelActiveTransfers;
 
   udpService.start();
